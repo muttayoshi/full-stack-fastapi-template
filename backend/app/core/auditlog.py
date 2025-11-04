@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session as SASession
 from sqlmodel import SQLModel
 
 if TYPE_CHECKING:
-    from app.auditlog.models import AuditLog
+    from app.auditlog.models import AuditAction
 
 T = TypeVar("T", bound=SQLModel)
 logging.basicConfig(level=logging.INFO)

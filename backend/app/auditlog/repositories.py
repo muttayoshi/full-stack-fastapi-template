@@ -88,7 +88,12 @@ def get_audit_logs(
 
 
 def get_record_history(
-    *, session: Session, table_name: str, record_id: str, skip: int = 0, limit: int = 100
+    *,
+    session: Session,
+    table_name: str,
+    record_id: str,
+    skip: int = 0,
+    limit: int = 100,
 ) -> tuple[list[AuditLog], int]:
     """Get audit history for a specific record."""
     return get_audit_logs(
@@ -110,4 +115,3 @@ def get_user_activities(
 def get_audit_log_by_id(*, session: Session, audit_id: uuid.UUID) -> AuditLog | None:
     """Get a specific audit log by ID."""
     return session.get(AuditLog, audit_id)
-

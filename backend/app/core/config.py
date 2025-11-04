@@ -115,5 +115,23 @@ class Settings(BaseSettings):
 
         return self
 
+    # Google Cloud Storage Configuration
+    GOOGLE_APPLICATION_CREDENTIALS: str | None = None
+    GOOGLE_CLOUD_PROJECT: str | None = None
+    GCS_BUCKET_NAME: str | None = None
+
+    # Backblaze B2 Configuration
+    B2_APPLICATION_KEY_ID: str | None = None
+    B2_APPLICATION_KEY: str | None = None
+    B2_BUCKET_NAME: str | None = None
+    B2_ENDPOINT_URL: str | None = None
+    B2_REGION: str = "us-west-004"
+
+    # Amazon S3 Configuration
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+    S3_BUCKET_NAME: str | None = None
+    S3_REGION: str = "us-east-1"
+
 
 settings = Settings()  # type: ignore

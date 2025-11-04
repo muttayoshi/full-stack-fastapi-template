@@ -1,8 +1,6 @@
 """Integration test for Audit Middleware with API"""
 
-import uuid
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -186,7 +184,9 @@ def test_get_record_history_endpoint(
 
 
 def test_regular_user_can_only_see_own_audit_logs(
-    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+    client: TestClient,
+    normal_user_token_headers: dict[str, str],
+    db: Session,  # noqa: ARG001
 ) -> None:
     """Test regular users can only see their own audit logs"""
     # Create item as normal user
@@ -210,4 +210,3 @@ def test_regular_user_can_only_see_own_audit_logs(
         if log["user_id"]:  # Some logs might not have user_id
             # We can't check the exact UUID here, but we know it's filtered
             assert log["user_id"] is not None
-

@@ -53,7 +53,9 @@ def get_audit_logs(
     count = len(session.exec(count_statement).all())
 
     # Get paginated results
-    statement = statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+    statement = (
+        statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+    )
     audit_logs = list(session.exec(statement).all())
 
     return AuditLogsPublic(data=audit_logs, count=count)
@@ -114,7 +116,9 @@ def get_record_history(
     count = len(session.exec(count_statement).all())
 
     # Get paginated results ordered by timestamp
-    statement = statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+    statement = (
+        statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+    )
     audit_logs = list(session.exec(statement).all())
 
     return AuditLogsPublic(data=audit_logs, count=count)
@@ -148,7 +152,9 @@ def get_user_audit_logs(
     count = len(session.exec(count_statement).all())
 
     # Get paginated results
-    statement = statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+    statement = (
+        statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+    )
     audit_logs = list(session.exec(statement).all())
 
     return AuditLogsPublic(data=audit_logs, count=count)

@@ -24,6 +24,7 @@ class AuditLogBase(BaseModel):
 
 class AuditLogPublic(AuditLogBase):
     """Public schema for audit log with ID"""
+
     id: uuid.UUID
 
     class Config:
@@ -32,6 +33,7 @@ class AuditLogPublic(AuditLogBase):
 
 class AuditLogsPublic(BaseModel):
     """Public schema for list of audit logs"""
+
     data: list[AuditLogPublic]
     count: int
 

@@ -75,11 +75,20 @@ class AuditService:
 
     @staticmethod
     def get_record_history(
-        *, session: Session, table_name: str, record_id: str, skip: int = 0, limit: int = 100
+        *,
+        session: Session,
+        table_name: str,
+        record_id: str,
+        skip: int = 0,
+        limit: int = 100,
     ) -> tuple[list[AuditLog], int]:
         """Ambil riwayat perubahan untuk record tertentu"""
         return repositories.get_record_history(
-            session=session, table_name=table_name, record_id=record_id, skip=skip, limit=limit
+            session=session,
+            table_name=table_name,
+            record_id=record_id,
+            skip=skip,
+            limit=limit,
         )
 
     @staticmethod
