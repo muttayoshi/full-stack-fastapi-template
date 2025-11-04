@@ -88,4 +88,3 @@ def delete_item(
         raise HTTPException(status_code=400, detail="Not enough permissions")
     ItemService.delete_item(session=session, item=item)
     return Message(message="Item deleted successfully")
-

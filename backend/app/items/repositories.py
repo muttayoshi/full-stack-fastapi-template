@@ -1,6 +1,6 @@
 import uuid
 
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
 from app.items.models import Item
 from app.items.schemas import ItemCreate
@@ -20,7 +20,9 @@ def get_item_by_id(*, session: Session, item_id: uuid.UUID) -> Item | None:
     return session.get(Item, item_id)
 
 
-def get_items(*, session: Session, skip: int = 0, limit: int = 100) -> tuple[list[Item], int]:
+def get_items(
+    *, session: Session, skip: int = 0, limit: int = 100
+) -> tuple[list[Item], int]:
     """Get all items with pagination."""
     count_statement = select(func.count()).select_from(Item)
     count = session.exec(count_statement).one()
@@ -34,18 +36,9 @@ def get_items_by_owner(
 ) -> tuple[list[Item], int]:
     """Get items by owner with pagination."""
     count_statement = (
-        select(func.count())
-        .select_from(Item)
-        .where(Item.owner_id == owner_id)
+        select(func.count()).select_from(Item).where(Item.owner_id == owner_id)
     )
     count = session.exec(count_statement).one()
-    statement = (
-        select(Item)
-        .where(Item.owner_id == owner_id)
-        .offset(skip)
-        .limit(limit)
-    )
+    statement = select(Item).where(Item.owner_id == owner_id).offset(skip).limit(limit)
     items = session.exec(statement).all()
     return list(items), count
-
-

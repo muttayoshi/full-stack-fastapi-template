@@ -207,7 +207,9 @@ def update_user_me(
     """
 
     if user_in.email:
-        existing_user = UserService.get_user_by_email(session=session, email=user_in.email)
+        existing_user = UserService.get_user_by_email(
+            session=session, email=user_in.email
+        )
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
@@ -318,7 +320,9 @@ def update_user(
             detail="The user with this id does not exist in the system",
         )
     if user_in.email:
-        existing_user = UserService.get_user_by_email(session=session, email=user_in.email)
+        existing_user = UserService.get_user_by_email(
+            session=session, email=user_in.email
+        )
         if existing_user and existing_user.id != user_id:
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
@@ -384,4 +388,3 @@ router.include_router(users_router)
 
 if settings.ENVIRONMENT == "local":
     router.include_router(private_router)
-

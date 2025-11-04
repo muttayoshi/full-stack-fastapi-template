@@ -16,4 +16,3 @@ class Item(SQLModel, table=True):
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )
     owner: "User" = Relationship(back_populates="items")
-

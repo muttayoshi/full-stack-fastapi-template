@@ -7,8 +7,8 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.core.security import verify_password
 from app.users.models import User
-from app.users.schemas import UserCreate
 from app.users.repositories import create_user, get_user_by_email
+from app.users.schemas import UserCreate
 from tests.utils.utils import random_email, random_lower_string
 
 

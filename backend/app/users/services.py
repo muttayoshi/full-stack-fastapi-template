@@ -3,9 +3,9 @@ from typing import Any
 
 from sqlmodel import Session
 
+from app.users import repositories
 from app.users.models import User
 from app.users.schemas import UserCreate, UserUpdate
-from app.users import repositories
 
 
 class UserService:
@@ -19,7 +19,9 @@ class UserService:
     @staticmethod
     def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
         """Update an existing user."""
-        return repositories.update_user(session=session, db_user=db_user, user_in=user_in)
+        return repositories.update_user(
+            session=session, db_user=db_user, user_in=user_in
+        )
 
     @staticmethod
     def get_user_by_email(*, session: Session, email: str) -> User | None:
@@ -34,5 +36,6 @@ class UserService:
     @staticmethod
     def authenticate(*, session: Session, email: str, password: str) -> User | None:
         """Authenticate a user."""
-        return repositories.authenticate(session=session, email=email, password=password)
-
+        return repositories.authenticate(
+            session=session, email=email, password=password
+        )

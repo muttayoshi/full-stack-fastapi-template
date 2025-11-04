@@ -9,8 +9,8 @@ from app.users.schemas import (
     UserBase,
     UserCreate,
     UserPublic,
-    UsersPublic,
     UserRegister,
+    UsersPublic,
     UserUpdate,
     UserUpdateMe,
 )
@@ -29,4 +29,3 @@ __all__ = [
     "UserUpdate",
     "UserUpdateMe",
 ]
-

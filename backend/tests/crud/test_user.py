@@ -3,8 +3,8 @@ from sqlmodel import Session
 
 from app.core.security import verify_password
 from app.users.models import User
+from app.users.repositories import authenticate, create_user, update_user
 from app.users.schemas import UserCreate, UserUpdate
-from app.users.repositories import create_user, authenticate
 from tests.utils.utils import random_email, random_lower_string
 
 

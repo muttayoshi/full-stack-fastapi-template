@@ -1,6 +1,12 @@
 import uuid
 
+# Import for type checking
+from typing import TYPE_CHECKING
+
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from app.items.models import Item
 
 
 # Database model, database table inferred from class name
@@ -12,10 +18,3 @@ class User(SQLModel, table=True):
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)  # type: ignore
-
-
-# Import for type checking
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from app.items.models import Item
-
