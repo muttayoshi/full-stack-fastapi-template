@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import timedelta
 from typing import Annotated, Any
@@ -20,6 +21,8 @@ from app.core.security import get_password_hash, verify_password
 from app.items.models import Item
 from app.users.models import User
 from app.users.schemas import (
+    GoogleAuthRequest,
+    GoogleAuthResponse,
     NewPassword,
     Token,
     UpdatePassword,
@@ -30,7 +33,7 @@ from app.users.schemas import (
     UserUpdate,
     UserUpdateMe,
 )
-from app.users.services import UserService
+from app.users.services import OAuthService, UserService
 from app.utils import (
     generate_new_account_email,
     generate_password_reset_token,
@@ -39,7 +42,11 @@ from app.utils import (
     verify_password_reset_token,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# OAuth router
+oauth_router = APIRouter(prefix="/oauth", tags=["oauth"])
 
 # Authentication endpoints
 auth_router = APIRouter(tags=["login"])
@@ -382,9 +389,113 @@ def create_user_private(user_in: PrivateUserCreate, session: SessionDep) -> Any:
     return user
 
 
+@oauth_router.post("/google", response_model=GoogleAuthResponse)
+async def google_login(
+    session: SessionDep, auth_request: GoogleAuthRequest
+) -> GoogleAuthResponse:
+    """
+    Google OAuth Login
+
+    Exchange Google authorization code for access token.
+    This endpoint will:
+    1. Validate the Google authorization code
+    2. Get user info from Google
+    3. Create new user or link Google account to existing user
+    4. Return access token for the user
+
+    Note: If user doesn't exist, a new account will be created automatically.
+    """
+    if not settings.google_oauth_enabled:
+        logger.warning("Attempt to use Google OAuth when it's not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Google OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
+        )
+
+    # Validate authorization code is not empty
+    if not auth_request.code or not auth_request.code.strip():
+        logger.warning("Empty authorization code received")
+        raise HTTPException(
+            status_code=400,
+            detail="Authorization code is required",
+        )
+
+    oauth_service = OAuthService(session)
+
+    try:
+        # Exchange code for user info
+        user_info = await oauth_service.exchange_google_code_for_user_info(
+            auth_request.code
+        )
+
+        if not user_info:
+            logger.warning("Failed to exchange Google authorization code")
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to authenticate with Google. Invalid or expired authorization code.",
+            )
+
+        # Verify email is verified by Google
+        if not user_info.get("verified_email", False):
+            logger.warning(
+                "Unverified email attempted Google login",
+                extra={"email": user_info.get("email")},
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Google account email is not verified. Please verify your email with Google first.",
+            )
+
+        # Create new user or link Google account to existing user
+        user = oauth_service.create_or_link_google_account(
+            google_id=user_info["google_id"],
+            email=user_info["email"],
+            full_name=user_info.get("full_name"),
+        )
+
+        if not user.is_active:
+            logger.warning(
+                "Inactive user attempted Google login",
+                extra={"user_id": str(user.id), "email": user.email},
+            )
+            raise HTTPException(status_code=400, detail="Inactive user")
+
+        # Generate access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = security.create_access_token(
+            user.id, expires_delta=access_token_expires
+        )
+
+        logger.info(
+            "User successfully authenticated via Google OAuth",
+            extra={"user_id": str(user.id), "email": user.email},
+        )
+
+        return GoogleAuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=UserPublic.model_validate(user),
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(
+            "Unexpected error during Google OAuth login",
+            extra={"error": str(e), "error_type": type(e).__name__},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred during authentication. Please try again later.",
+        )
+
+
 # Include all routers in the main router
 router.include_router(auth_router)
 router.include_router(users_router)
+router.include_router(oauth_router)
 
 if settings.ENVIRONMENT == "local":
     router.include_router(private_router)

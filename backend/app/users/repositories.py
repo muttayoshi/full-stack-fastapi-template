@@ -41,6 +41,13 @@ def get_user_by_email(*, session: Session, email: str) -> User | None:
     return session_user
 
 
+def get_user_by_google_id(*, session: Session, google_id: str) -> User | None:
+    """Get a user by google_id."""
+    statement = select(User).where(User.google_id == google_id)
+    session_user = session.exec(statement).first()
+    return session_user
+
+
 def get_user_by_id(*, session: Session, user_id: uuid.UUID) -> User | None:
     """Get a user by ID."""
     return session.get(User, user_id)

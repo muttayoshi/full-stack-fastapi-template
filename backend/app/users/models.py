@@ -19,6 +19,9 @@ class User(SQLModel, AuditMixin, table=True):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+    google_id: str | None = Field(
+        default=None, unique=True, index=True
+    )  # Google OAuth ID
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)  # type: ignore
 
     def _get_audit_data(self) -> dict[str, Any]:

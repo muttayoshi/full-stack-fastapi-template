@@ -15,18 +15,15 @@ def example_upload_from_disk():
     # Upload file
     url = s3.upload_file(
         file_path="/path/to/local/file.pdf",
-        destination_blob_name="documents/my-document.pdf"
+        destination_blob_name="documents/my-document.pdf",
     )
 
-    print(f"File uploaded to: {url}")
+    print(f"File uploaded to: {url}")  # noqa: T201
 
     # Generate presigned URL for secure access
-    presigned_url = s3.convert_public_url_to_signed_url(
-        s3_url=url,
-        expiration_hours=24
-    )
+    presigned_url = s3.convert_public_url_to_signed_url(s3_url=url, expiration_hours=24)
 
-    print(f"Presigned URL (valid for 24 hours): {presigned_url}")
+    print(f"Presigned URL (valid for 24 hours): {presigned_url}")  # noqa: T201
 
 
 def example_upload_from_memory():
@@ -41,10 +38,10 @@ def example_upload_from_memory():
     url = s3.upload_file_from_memory(
         file_content=file_content,
         destination_blob_name="uploads/document.pdf",
-        content_type="application/pdf"
+        content_type="application/pdf",
     )
 
-    print(f"File uploaded to: {url}")
+    print(f"File uploaded to: {url}")  # noqa: T201
 
 
 def example_download_file():
@@ -54,10 +51,10 @@ def example_download_file():
     # Download file
     s3.download_file(
         source_blob_name="uploads/document.pdf",
-        destination_file_path="/path/to/save/downloaded.pdf"
+        destination_file_path="/path/to/save/downloaded.pdf",
     )
 
-    print("File downloaded successfully")
+    print("File downloaded successfully")  # noqa: T201
 
 
 def example_list_files():
@@ -67,9 +64,9 @@ def example_list_files():
     # List all files in 'uploads/' folder
     files = s3.list_files(prefix="uploads/", max_keys=100)
 
-    print(f"Found {len(files)} files:")
+    print(f"Found {len(files)} files:")  # noqa: T201
     for file in files:
-        print(f"  - {file['name']} ({file['size']} bytes)")
+        print(f"  - {file['name']} ({file['size']} bytes)")  # noqa: T201
 
 
 def example_delete_file():
@@ -80,7 +77,7 @@ def example_delete_file():
     success = s3.delete_file(blob_name="uploads/old-document.pdf")
 
     if success:
-        print("File deleted successfully")
+        print("File deleted successfully")  # noqa: T201
 
 
 def example_check_file_exists():
@@ -91,9 +88,9 @@ def example_check_file_exists():
     exists = s3.file_exists(blob_name="uploads/document.pdf")
 
     if exists:
-        print("File exists")
+        print("File exists")  # noqa: T201
     else:
-        print("File not found")
+        print("File not found")  # noqa: T201
 
 
 def example_get_presigned_url():
@@ -102,20 +99,15 @@ def example_get_presigned_url():
 
     # Get presigned URL (for private files)
     presigned_url = s3.get_file_url(
-        blob_name="private/sensitive-document.pdf",
-        signed=True,
-        expiration_hours=2
+        blob_name="private/sensitive-document.pdf", signed=True, expiration_hours=2
     )
 
-    print(f"Presigned URL (valid for 2 hours): {presigned_url}")
+    print(f"Presigned URL (valid for 2 hours): {presigned_url}")  # noqa: T201
 
     # Get public URL (for public files)
-    public_url = s3.get_file_url(
-        blob_name="public/image.jpg",
-        signed=False
-    )
+    public_url = s3.get_file_url(blob_name="public/image.jpg", signed=False)
 
-    print(f"Public URL: {public_url}")
+    print(f"Public URL: {public_url}")  # noqa: T201
 
 
 def example_extract_blob_name():
@@ -124,7 +116,7 @@ def example_extract_blob_name():
 
     blob_name = AmazonS3Storage.extract_blob_name_from_url(url)
 
-    print(f"Blob name: {blob_name}")  # Output: "uploads/document.pdf"
+    print(f"Blob name: {blob_name}")  # Output: "uploads/document.pdf"  # noqa: T201
 
 
 def example_upload_json_data():
@@ -139,7 +131,7 @@ def example_upload_json_data():
         "id": "12345",
         "name": "Sample Data",
         "timestamp": datetime.now().isoformat(),
-        "items": ["item1", "item2", "item3"]
+        "items": ["item1", "item2", "item3"],
     }
 
     # Convert to JSON string and encode
@@ -149,10 +141,10 @@ def example_upload_json_data():
     url = s3.upload_file_from_memory(
         file_content=json_content,
         destination_blob_name="data/sample-data.json",
-        content_type="application/json"
+        content_type="application/json",
     )
 
-    print(f"JSON data uploaded to: {url}")
+    print(f"JSON data uploaded to: {url}")  # noqa: T201
 
 
 def example_upload_image():
@@ -167,15 +159,15 @@ def example_upload_image():
     url = s3.upload_file_from_memory(
         file_content=image_content,
         destination_blob_name="images/photo.jpg",
-        content_type="image/jpeg"
+        content_type="image/jpeg",
     )
 
-    print(f"Image uploaded to: {url}")
+    print(f"Image uploaded to: {url}")  # noqa: T201
 
 
 if __name__ == "__main__":
-    print("Amazon S3 Storage Examples")
-    print("=" * 50)
+    print("Amazon S3 Storage Examples")  # noqa: T201
+    print("=" * 50)  # noqa: T201
 
     # Run examples (uncomment to test)
     # example_upload_from_disk()
@@ -189,5 +181,6 @@ if __name__ == "__main__":
     # example_upload_json_data()
     # example_upload_image()
 
-    print("\nNote: Make sure to configure S3 credentials in .env file before running examples")
-
+    print(  # noqa: T201
+        "\nNote: Make sure to configure S3 credentials in .env file before running examples"
+    )
