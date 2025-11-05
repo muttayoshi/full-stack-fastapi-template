@@ -50,7 +50,9 @@ class TestOAuthService:
             full_name="Test User",
         )
 
-        with patch("app.users.repositories.get_user_by_google_id", return_value=existing_user):
+        with patch(
+            "app.users.repositories.get_user_by_google_id", return_value=existing_user
+        ):
             result = oauth_service.link_google_account(
                 google_id="123456789",
                 email="test@example.com",
@@ -71,7 +73,9 @@ class TestOAuthService:
         )
 
         with patch("app.users.repositories.get_user_by_google_id", return_value=None):
-            with patch("app.users.repositories.get_user_by_email", return_value=existing_user):
+            with patch(
+                "app.users.repositories.get_user_by_email", return_value=existing_user
+            ):
                 result = oauth_service.link_google_account(
                     google_id="123456789",
                     email="test@example.com",
@@ -115,7 +119,9 @@ class TestOAuthService:
         mock_session.add.assert_called()
         mock_session.commit.assert_called()
 
-    def test_create_or_link_google_account_link_existing(self, oauth_service, mock_session):
+    def test_create_or_link_google_account_link_existing(
+        self, oauth_service, mock_session
+    ):
         """Test linking to existing user by email"""
         existing_user = User(
             id=uuid.uuid4(),
@@ -126,7 +132,9 @@ class TestOAuthService:
         )
 
         with patch("app.users.repositories.get_user_by_google_id", return_value=None):
-            with patch("app.users.repositories.get_user_by_email", return_value=existing_user):
+            with patch(
+                "app.users.repositories.get_user_by_email", return_value=existing_user
+            ):
                 result = oauth_service.create_or_link_google_account(
                     google_id="123456789",
                     email="test@example.com",
@@ -138,7 +146,9 @@ class TestOAuthService:
         mock_session.commit.assert_called()
 
     @pytest.mark.asyncio
-    async def test_exchange_google_code_success(self, oauth_service, mock_google_user_info):
+    async def test_exchange_google_code_success(
+        self, oauth_service, mock_google_user_info
+    ):
         """Test successful Google code exchange"""
         mock_token_response = MagicMock()
         mock_token_response.json.return_value = {"access_token": "test-token"}
@@ -159,7 +169,9 @@ class TestOAuthService:
             mock_client_instance.get.return_value = mock_userinfo_response
 
             with patch("app.users.services.settings.google_oauth_enabled", True):
-                result = await oauth_service.exchange_google_code_for_user_info("test-code")
+                result = await oauth_service.exchange_google_code_for_user_info(
+                    "test-code"
+                )
 
         assert result["google_id"] == "123456789"
         assert result["email"] == "test@example.com"
@@ -189,7 +201,9 @@ class TestOAuthService:
             )
 
             with patch("app.users.services.settings.google_oauth_enabled", True):
-                result = await oauth_service.exchange_google_code_for_user_info("test-code")
+                result = await oauth_service.exchange_google_code_for_user_info(
+                    "test-code"
+                )
 
         assert result is None
 
@@ -202,7 +216,9 @@ class TestOAuthService:
             mock_client_instance.post.side_effect = RequestError("Network error")
 
             with patch("app.users.services.settings.google_oauth_enabled", True):
-                result = await oauth_service.exchange_google_code_for_user_info("test-code")
+                result = await oauth_service.exchange_google_code_for_user_info(
+                    "test-code"
+                )
 
         assert result is None
 
@@ -218,7 +234,8 @@ class TestOAuthService:
             mock_client_instance.post.return_value = mock_token_response
 
             with patch("app.users.services.settings.google_oauth_enabled", True):
-                result = await oauth_service.exchange_google_code_for_user_info("test-code")
+                result = await oauth_service.exchange_google_code_for_user_info(
+                    "test-code"
+                )
 
         assert result is None
-

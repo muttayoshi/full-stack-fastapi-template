@@ -3,7 +3,6 @@ Integration tests for OAuth endpoints
 """
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -168,4 +167,3 @@ class TestOAuthEndpoints:
 
         assert response.status_code == 400
         assert "inactive" in response.json()["detail"].lower()
-
