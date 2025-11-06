@@ -517,6 +517,18 @@
 
                 if (data.type === 'message' && data.data) {
                     addMessage(data.data);
+
+                    // Auto-mark as read if viewing this conversation
+                    if (data.data.sender_id !== currentUserId) {
+                        // For direct messages
+                        if (chatMode === 'direct' && data.data.sender_id === currentRecipientId) {
+                            markMessageAsRead(data.data.id);
+                        }
+                        // For room messages
+                        if (chatMode === 'room' && data.data.room_id === currentRoomId) {
+                            markMessageAsRead(data.data.id);
+                        }
+                    }
                 } else if (data.type === 'user_joined' || data.type === 'user_left') {
                     addNotification(data.message);
                 } else if (data.type === 'connected') {
@@ -717,6 +729,12 @@
 
                 data.data.reverse().forEach(msg => addMessage(msg, false));
                 container.scrollTop = container.scrollHeight;
+
+                // Mark all messages in this room as read
+                await fetch(`${API_URL}/chat/rooms/${room.id}/mark-read`, {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
             } catch (error) {
                 console.error('Failed to load messages:', error);
             }
@@ -746,6 +764,12 @@
 
                 data.data.reverse().forEach(msg => addMessage(msg, false));
                 container.scrollTop = container.scrollHeight;
+
+                // Mark all messages from this user as read
+                await fetch(`${API_URL}/chat/messages/direct/${user.id}/mark-read`, {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
             } catch (error) {
                 console.error('Failed to load messages:', error);
             }
@@ -841,6 +865,17 @@
             notif.textContent = message;
             container.appendChild(notif);
             container.scrollTop = container.scrollHeight;
+        }
+
+        async function markMessageAsRead(messageId) {
+            try {
+                await fetch(`${API_URL}/chat/messages/${messageId}/read`, {
+                    method: 'PATCH',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+            } catch (error) {
+                console.error('Failed to mark message as read:', error);
+            }
         }
 
         function showCreateRoomModal() {

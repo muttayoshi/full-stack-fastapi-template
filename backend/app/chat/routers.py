@@ -791,6 +791,34 @@ def mark_message_as_read(
     )
 
 
+@router.post("/messages/direct/{other_user_id}/mark-read")
+def mark_direct_messages_read(
+    session: SessionDep,
+    current_user: CurrentUser,
+    other_user_id: uuid.UUID,
+) -> Any:
+    """Mark all unread direct messages from another user as read."""
+    count = MessageService.mark_direct_messages_as_read(
+        session, current_user.id, other_user_id
+    )
+    return {"message": f"Marked {count} messages as read", "count": count}
+
+
+@router.post("/rooms/{room_id}/mark-read")
+def mark_room_messages_read(
+    session: SessionDep,
+    current_user: CurrentUser,
+    room_id: uuid.UUID,
+) -> Any:
+    """Mark all unread messages in a room as read."""
+    # Check if user is member
+    if not RoomService.is_user_member(session, room_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Not a member of this room")
+
+    count = MessageService.mark_room_messages_as_read(session, room_id, current_user.id)
+    return {"message": f"Marked {count} messages as read", "count": count}
+
+
 @router.delete("/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_message(
     session: SessionDep,

@@ -319,6 +319,48 @@ class MessageService:
         return message
 
     @staticmethod
+    def mark_direct_messages_as_read(
+        session: Session, user_id: uuid.UUID, other_user_id: uuid.UUID
+    ) -> int:
+        """Mark all unread direct messages from other_user to user as read."""
+        from sqlalchemy import update
+
+        statement = (
+            update(Message)
+            .where(
+                Message.room_id.is_(None),
+                Message.sender_id == other_user_id,
+                Message.recipient_id == user_id,
+                Message.is_read.is_(False),
+            )
+            .values(is_read=True)
+        )
+        result = session.exec(statement)
+        session.commit()
+        return result.rowcount  # type: ignore
+
+    @staticmethod
+    def mark_room_messages_as_read(
+        session: Session, room_id: uuid.UUID, user_id: uuid.UUID
+    ) -> int:
+        """Mark all unread messages in a room as read for the current user.
+        Note: Room messages don't have a recipient_id, so we mark based on sender != user."""
+        from sqlalchemy import update
+
+        statement = (
+            update(Message)
+            .where(
+                Message.room_id == room_id,
+                Message.sender_id != user_id,  # Don't mark own messages
+                Message.is_read.is_(False),
+            )
+            .values(is_read=True)
+        )
+        result = session.exec(statement)
+        session.commit()
+        return result.rowcount  # type: ignore
+
+    @staticmethod
     def delete_message(session: Session, message_id: uuid.UUID) -> bool:
         """Delete a message."""
         message = session.get(Message, message_id)
