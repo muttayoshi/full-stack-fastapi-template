@@ -111,11 +111,12 @@ async def websocket_endpoint(
     await websocket.accept()
     logger.info("WebSocket connection accepted from client")
 
-    # Create database session manually (will be used throughout the connection)
-
-    db = Session(engine)
-
+    # Create database session in try block to ensure it's always closed
+    db = None
     try:
+        # Create database session manually (will be used throughout the connection)
+        db = Session(engine)
+
         # Authenticate user
         user = await get_current_user_ws(token, db)
         if not user:
@@ -311,9 +312,10 @@ async def websocket_endpoint(
             manager.disconnect(user.id)
             logger.error("WebSocket error for user %s: %s", user.email, e)
     finally:
-        # Close database session
-        db.close()
-        logger.debug("Database session closed")
+        # Close database session if it was created
+        if db is not None:
+            db.close()
+            logger.debug("Database session closed for WebSocket connection")
 
 
 # ============================================================================

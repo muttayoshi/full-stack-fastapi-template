@@ -25,7 +25,8 @@ class SitesMiddleware(BaseHTTPMiddleware):
 
         from app.core.db import engine
 
-        with Session(engine) as session:
+        # Use expire_on_commit=False to prevent detached instance errors
+        with Session(engine, expire_on_commit=False) as session:
             # Find the appropriate site
             site = get_site_by_request(session, host)
 
@@ -35,9 +36,9 @@ class SitesMiddleware(BaseHTTPMiddleware):
             # Store site in request state for easy access
             request.state.site = site
 
-        response = await call_next(request)
-
-        # Clean up context after request
-        set_current_site(None)
-
-        return response
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            # Clean up context after request (in finally to ensure cleanup)
+            set_current_site(None)
