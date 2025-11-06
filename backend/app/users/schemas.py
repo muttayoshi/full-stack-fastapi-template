@@ -87,3 +87,90 @@ class GoogleAuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: "UserPublic"
+
+
+# Base schema - shared properties
+class RoleBase(SQLModel):
+    name: str = Field(min_length=1, max_length=50, description="Role name")
+    description: str | None = Field(default=None, max_length=255)
+    is_active: bool = Field(default=True)
+
+
+# Create request
+class RoleCreate(RoleBase):
+    pass
+
+
+# Update request
+class RoleUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    description: str | None = None
+    is_active: bool | None = None
+
+
+# Public response
+class RolePublic(RoleBase):
+    id: uuid.UUID
+
+
+# List response
+class RolesPublic(SQLModel):
+    data: list[RolePublic]
+    count: int
+
+
+# Base schema - shared properties
+class UserRoleBase(SQLModel):
+    user_id: uuid.UUID
+    role_id: uuid.UUID
+    site_id: uuid.UUID | None = Field(
+        default=None, description="Site ID - if None, role applies to all sites"
+    )
+    is_active: bool = Field(default=True)
+
+
+# Create request
+class UserRoleCreate(UserRoleBase):
+    pass
+
+
+# Update request
+class UserRoleUpdate(SQLModel):
+    role_id: uuid.UUID | None = None
+    site_id: uuid.UUID | None = None
+    is_active: bool | None = None
+
+
+# Public response
+class UserRolePublic(UserRoleBase):
+    id: uuid.UUID
+
+
+# Public response with role details
+class UserRoleWithDetails(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    role_id: uuid.UUID
+    role_name: str
+    site_id: uuid.UUID | None
+    site_name: str | None = None
+    is_active: bool
+
+
+# List response
+class UserRolesPublic(SQLModel):
+    data: list[UserRolePublic]
+    count: int
+
+
+# Bulk role assignment request
+class UserRolesAssign(SQLModel):
+    role_ids: list[uuid.UUID] = Field(description="List of role IDs to assign")
+    site_id: uuid.UUID | None = Field(
+        default=None, description="Site ID - if None, roles apply to all sites"
+    )
+
+
+# Bulk role deletion request
+class UserRolesDelete(SQLModel):
+    role_ids: list[uuid.UUID] = Field(description="List of role IDs to remove")
