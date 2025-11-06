@@ -50,13 +50,15 @@ async def test_concurrent_connections(num_concurrent: int = 15):
 
     # Check results
     success_count = sum(results)
-    logger.info(f"\nCompleted {success_count}/{num_concurrent} queries in {duration:.2f}s")
+    logger.info(
+        f"\nCompleted {success_count}/{num_concurrent} queries in {duration:.2f}s"
+    )
 
     if success_count == num_concurrent:
-        logger.info("✅ All concurrent connections successful")
+        logger.info("\u2705 All concurrent connections successful")
         return True
     else:
-        logger.error(f"❌ {num_concurrent - success_count} queries failed")
+        logger.error(f"\u274c {num_concurrent - success_count} queries failed")
         return False
 
 
@@ -74,12 +76,12 @@ def test_connection_leak():
 
     # Create and close many sessions
     num_iterations = 50
-    for i in range(num_iterations):
+    for _ in range(num_iterations):
         try:
             with Session(engine) as session:
                 session.exec(select(1)).one()
         except Exception as e:
-            logger.error(f"Iteration {i}: Failed - {e}")
+            logger.error(f"Iteration failed - {e}")
             return False
 
     # Check if connections were leaked
@@ -87,11 +89,13 @@ def test_connection_leak():
     logger.info(f"Final checked out connections: {final_checked_out}")
 
     if final_checked_out == initial_checked_out:
-        logger.info(f"✅ No connection leaks detected after {num_iterations} iterations")
+        logger.info(
+            f"\u2705 No connection leaks detected after {num_iterations} iterations"
+        )
         return True
     else:
         leaked = final_checked_out - initial_checked_out
-        logger.error(f"❌ Connection leak detected: {leaked} connections leaked")
+        logger.error(f"\u274c Connection leak detected: {leaked} connections leaked")
         return False
 
 
@@ -118,6 +122,7 @@ def test_websocket_auth_failure():
                 return False
         finally:
             db.close()  # This should always run
+        # Return outside finally
         return True
 
     # Simulate the fixed code path
@@ -134,20 +139,21 @@ def test_websocket_auth_failure():
         finally:
             if db is not None:
                 db.close()
+        # Return outside finally
         return True
 
     # Test fixed version multiple times
-    for i in range(10):
+    for _ in range(10):
         fixed_websocket_handler()
 
     final_checked_out = pool.checkedout()
 
     if final_checked_out == initial_checked_out:
-        logger.info("✅ No leaks in WebSocket auth failure scenario")
+        logger.info("\u2705 No leaks in WebSocket auth failure scenario")
         return True
     else:
         leaked = final_checked_out - initial_checked_out
-        logger.error(f"❌ WebSocket handler leaked {leaked} connections")
+        logger.error(f"\u274c WebSocket handler leaked {leaked} connections")
         return False
 
 
@@ -161,7 +167,9 @@ def test_pool_exhaustion():
 
     pool = engine.pool
     logger.info(f"Pool size: {pool.size()}")
-    logger.info(f"Max overflow: {pool._pool.maxsize - pool.size() if hasattr(pool, '_pool') else 'N/A'}")
+    logger.info(
+        f"Max overflow: {pool._pool.maxsize - pool.size() if hasattr(pool, '_pool') else 'N/A'}"
+    )
 
     # Hold connections open to exhaust pool
     sessions = []
@@ -190,12 +198,12 @@ def test_pool_exhaustion():
 
         # Verify cleanup
         final_checked_out = pool.checkedout()
-        if final_checked_out == 0:
-            logger.info("✅ All connections properly released")
-            return True
-        else:
-            logger.error(f"❌ {final_checked_out} connections not released")
-            return False
+    if final_checked_out == 0:
+        logger.info("\u2705 All connections properly released")
+        return True
+    else:
+        logger.error(f"\u274c {final_checked_out} connections not released")
+        return False
 
 
 async def main():
@@ -258,4 +266,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

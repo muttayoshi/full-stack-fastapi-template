@@ -1,9 +1,14 @@
 """Service layer for chat functionality."""
 import uuid
 
-from sqlmodel import Session, func, select
+from sqlmodel import Session
 
 from app.chat.models import Message, Room, RoomMember
+from app.chat.repositories import (
+    MessageRepository,
+    RoomMemberRepository,
+    RoomRepository,
+)
 from app.chat.schemas import MessageCreate, RoomCreate, RoomMemberCreate, RoomUpdate
 
 
@@ -21,9 +26,7 @@ class RoomService:
             is_private=room_create.is_private,
             created_by=creator_id,
         )
-        session.add(room)
-        session.commit()
-        session.refresh(room)
+        room = RoomRepository.create(session, room)
 
         # Add creator as admin member
         member = RoomMember(
@@ -31,85 +34,42 @@ class RoomService:
             user_id=creator_id,
             is_admin=True,
         )
-        session.add(member)
-        session.commit()
+        RoomMemberRepository.create(session, member)
 
         return room
 
     @staticmethod
     def get_room(session: Session, room_id: uuid.UUID) -> Room | None:
         """Get a room by ID."""
-        return session.get(Room, room_id)
+        return RoomRepository.get_by_id(session, room_id)
 
     @staticmethod
     def get_rooms(
         session: Session, skip: int = 0, limit: int = 100
     ) -> tuple[list[Room], int]:
         """Get all rooms with pagination."""
-        count_statement = select(func.count()).select_from(Room)
-        count = session.exec(count_statement).one()
-
-        statement = (
-            select(Room).offset(skip).limit(limit).order_by(Room.created_at.desc())
-        )
-        rooms = list(session.exec(statement).all())
-
-        return rooms, count
+        return RoomRepository.get_all(session, skip=skip, limit=limit)
 
     @staticmethod
     def get_public_rooms(
         session: Session, skip: int = 0, limit: int = 100
     ) -> tuple[list[Room], int]:
         """Get all public (non-private) rooms with pagination."""
-        count_statement = (
-            select(func.count()).select_from(Room).where(Room.is_private.is_(False))
-        )
-        count = session.exec(count_statement).one()
-
-        statement = (
-            select(Room)
-            .where(Room.is_private.is_(False))
-            .offset(skip)
-            .limit(limit)
-            .order_by(Room.created_at.desc())
-        )
-        rooms = list(session.exec(statement).all())
-
-        return rooms, count
+        return RoomRepository.get_public_rooms(session, skip=skip, limit=limit)
 
     @staticmethod
     def get_user_rooms(
         session: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 100
     ) -> tuple[list[Room], int]:
         """Get all rooms a user is a member of."""
-        # Join Room with RoomMember to get user's rooms
-        statement = (
-            select(Room)
-            .join(RoomMember, Room.id == RoomMember.room_id)
-            .where(RoomMember.user_id == user_id)
-            .offset(skip)
-            .limit(limit)
-            .order_by(Room.created_at.desc())
-        )
-        rooms = list(session.exec(statement).all())
-
-        # Count total
-        count_statement = (
-            select(func.count())
-            .select_from(Room)
-            .join(RoomMember, Room.id == RoomMember.room_id)
-            .where(RoomMember.user_id == user_id)
-        )
-        count = session.exec(count_statement).one()
-
-        return rooms, count
+        return RoomRepository.get_user_rooms(session, user_id, skip=skip, limit=limit)
 
     @staticmethod
     def update_room(
         session: Session, room_id: uuid.UUID, room_update: RoomUpdate
     ) -> Room | None:
         """Update a room."""
-        room = session.get(Room, room_id)
+        room = RoomRepository.get_by_id(session, room_id)
         if not room:
             return None
 
@@ -117,20 +77,16 @@ class RoomService:
         for key, value in update_data.items():
             setattr(room, key, value)
 
-        session.add(room)
-        session.commit()
-        session.refresh(room)
-        return room
+        return RoomRepository.update(session, room)
 
     @staticmethod
     def delete_room(session: Session, room_id: uuid.UUID) -> bool:
         """Delete a room."""
-        room = session.get(Room, room_id)
+        room = RoomRepository.get_by_id(session, room_id)
         if not room:
             return False
 
-        session.delete(room)
-        session.commit()
+        RoomRepository.delete(session, room)
         return True
 
     @staticmethod
@@ -139,11 +95,9 @@ class RoomService:
     ) -> RoomMember | None:
         """Add a member to a room."""
         # Check if user is already a member
-        statement = select(RoomMember).where(
-            RoomMember.room_id == room_id,
-            RoomMember.user_id == member_create.user_id,
+        existing = RoomMemberRepository.get_by_room_and_user(
+            session, room_id, member_create.user_id
         )
-        existing = session.exec(statement).first()
         if existing:
             return existing
 
@@ -151,52 +105,40 @@ class RoomService:
             room_id=room_id,
             user_id=member_create.user_id,
         )
-        session.add(member)
-        session.commit()
-        session.refresh(member)
-        return member
+        return RoomMemberRepository.create(session, member)
 
     @staticmethod
     def remove_member(session: Session, room_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """Remove a member from a room."""
-        statement = select(RoomMember).where(
-            RoomMember.room_id == room_id,
-            RoomMember.user_id == user_id,
-        )
-        member = session.exec(statement).first()
+        member = RoomMemberRepository.get_by_room_and_user(session, room_id, user_id)
         if not member:
             return False
 
-        session.delete(member)
-        session.commit()
+        RoomMemberRepository.delete(session, member)
         return True
 
     @staticmethod
     def get_room_members(session: Session, room_id: uuid.UUID) -> list[RoomMember]:
         """Get all members of a room."""
-        statement = select(RoomMember).where(RoomMember.room_id == room_id)
-        return list(session.exec(statement).all())
+        return RoomMemberRepository.get_by_room(session, room_id)
 
     @staticmethod
     def is_user_member(
         session: Session, room_id: uuid.UUID, user_id: uuid.UUID
     ) -> bool:
         """Check if a user is a member of a room."""
-        statement = select(RoomMember).where(
-            RoomMember.room_id == room_id,
-            RoomMember.user_id == user_id,
+        return (
+            RoomMemberRepository.get_by_room_and_user(session, room_id, user_id)
+            is not None
         )
-        return session.exec(statement).first() is not None
 
     @staticmethod
     def is_user_admin(session: Session, room_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """Check if a user is an admin of a room."""
-        statement = select(RoomMember).where(
-            RoomMember.room_id == room_id,
-            RoomMember.user_id == user_id,
-            RoomMember.is_admin.is_(True),
+        return (
+            RoomMemberRepository.get_admin_by_room_and_user(session, room_id, user_id)
+            is not None
         )
-        return session.exec(statement).first() is not None
 
 
 class MessageService:
@@ -214,15 +156,12 @@ class MessageService:
             content=message_create.content,
             message_type=message_create.message_type,
         )
-        session.add(message)
-        session.commit()
-        session.refresh(message)
-        return message
+        return MessageRepository.create(session, message)
 
     @staticmethod
     def get_message(session: Session, message_id: uuid.UUID) -> Message | None:
         """Get a message by ID."""
-        return session.get(Message, message_id)
+        return MessageRepository.get_by_id(session, message_id)
 
     @staticmethod
     def get_room_messages(
@@ -232,21 +171,9 @@ class MessageService:
         limit: int = 50,
     ) -> tuple[list[Message], int]:
         """Get all messages in a room."""
-        count_statement = (
-            select(func.count()).select_from(Message).where(Message.room_id == room_id)
+        return MessageRepository.get_room_messages(
+            session, room_id, skip=skip, limit=limit
         )
-        count = session.exec(count_statement).one()
-
-        statement = (
-            select(Message)
-            .where(Message.room_id == room_id)
-            .order_by(Message.created_at.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        messages = list(session.exec(statement).all())
-
-        return messages, count
 
     @staticmethod
     def get_direct_messages(
@@ -257,64 +184,23 @@ class MessageService:
         limit: int = 50,
     ) -> tuple[list[Message], int]:
         """Get direct messages between two users."""
-        # Messages where user is sender and other is recipient OR vice versa
-        count_statement = (
-            select(func.count())
-            .select_from(Message)
-            .where(
-                Message.room_id.is_(None),
-                (
-                    (
-                        (Message.sender_id == user_id)
-                        & (Message.recipient_id == other_user_id)
-                    )
-                    | (
-                        (Message.sender_id == other_user_id)
-                        & (Message.recipient_id == user_id)
-                    )
-                ),
-            )
+        return MessageRepository.get_direct_messages(
+            session, user_id, other_user_id, skip=skip, limit=limit
         )
-        count = session.exec(count_statement).one()
-
-        statement = (
-            select(Message)
-            .where(
-                Message.room_id.is_(None),
-                (
-                    (
-                        (Message.sender_id == user_id)
-                        & (Message.recipient_id == other_user_id)
-                    )
-                    | (
-                        (Message.sender_id == other_user_id)
-                        & (Message.recipient_id == user_id)
-                    )
-                ),
-            )
-            .order_by(Message.created_at.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        messages = list(session.exec(statement).all())
-
-        return messages, count
 
     @staticmethod
     def mark_as_read(
         session: Session, message_id: uuid.UUID, user_id: uuid.UUID
     ) -> Message | None:
         """Mark a message as read."""
-        message = session.get(Message, message_id)
+        message = MessageRepository.get_by_id(session, message_id)
         if not message:
             return None
 
         # Only recipient can mark as read
         if message.recipient_id == user_id:
             message.is_read = True
-            session.add(message)
-            session.commit()
-            session.refresh(message)
+            return MessageRepository.update(session, message)
 
         return message
 
@@ -323,21 +209,9 @@ class MessageService:
         session: Session, user_id: uuid.UUID, other_user_id: uuid.UUID
     ) -> int:
         """Mark all unread direct messages from other_user to user as read."""
-        from sqlalchemy import update
-
-        statement = (
-            update(Message)
-            .where(
-                Message.room_id.is_(None),
-                Message.sender_id == other_user_id,
-                Message.recipient_id == user_id,
-                Message.is_read.is_(False),
-            )
-            .values(is_read=True)
+        return MessageRepository.mark_direct_messages_as_read(
+            session, user_id, other_user_id
         )
-        result = session.exec(statement)
-        session.commit()
-        return result.rowcount  # type: ignore
 
     @staticmethod
     def mark_room_messages_as_read(
@@ -345,51 +219,22 @@ class MessageService:
     ) -> int:
         """Mark all unread messages in a room as read for the current user.
         Note: Room messages don't have a recipient_id, so we mark based on sender != user."""
-        from sqlalchemy import update
-
-        statement = (
-            update(Message)
-            .where(
-                Message.room_id == room_id,
-                Message.sender_id != user_id,  # Don't mark own messages
-                Message.is_read.is_(False),
-            )
-            .values(is_read=True)
-        )
-        result = session.exec(statement)
-        session.commit()
-        return result.rowcount  # type: ignore
+        return MessageRepository.mark_room_messages_as_read(session, room_id, user_id)
 
     @staticmethod
     def delete_message(session: Session, message_id: uuid.UUID) -> bool:
         """Delete a message."""
-        message = session.get(Message, message_id)
+        message = MessageRepository.get_by_id(session, message_id)
         if not message:
             return False
 
-        session.delete(message)
-        session.commit()
+        MessageRepository.delete(session, message)
         return True
 
     @staticmethod
     def get_user_conversations(session: Session, user_id: uuid.UUID) -> list[dict]:
         """Get list of users that the given user has conversations with."""
-        from sqlmodel import or_
-
-        # Get all users that have direct messages with current user
-        # Messages where user is sender or recipient
-        statement = (
-            select(Message)
-            .where(
-                Message.room_id.is_(None),
-                or_(
-                    Message.sender_id == user_id,
-                    Message.recipient_id == user_id,
-                ),
-            )
-            .order_by(Message.created_at.desc())
-        )
-        messages = list(session.exec(statement).all())
+        messages = MessageRepository.get_user_direct_messages(session, user_id)
 
         # Group by other user
         conversations = {}
@@ -403,17 +248,9 @@ class MessageService:
 
             if other_user_id and other_user_id not in conversations:
                 # Count unread messages from this user
-                unread_statement = (
-                    select(func.count())
-                    .select_from(Message)
-                    .where(
-                        Message.room_id.is_(None),
-                        Message.sender_id == other_user_id,
-                        Message.recipient_id == user_id,
-                        Message.is_read.is_(False),
-                    )
+                unread_count = MessageRepository.count_unread_direct_messages(
+                    session, other_user_id, user_id
                 )
-                unread_count = session.exec(unread_statement).one()
 
                 conversations[other_user_id] = {
                     "user_id": other_user_id,

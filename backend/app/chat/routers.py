@@ -855,42 +855,12 @@ def get_users_for_chat(
     search: str = Query(default="", description="Search users by email or name"),
 ) -> Any:
     """Get users for direct messaging."""
-    from sqlmodel import func, or_, select
+    from app.chat.repositories import UserRepository
 
-    # Build query
-    query = select(User).where(User.id != current_user.id, User.is_active.is_(True))
-
-    # Add search filter if provided
-    if search:
-        query = query.where(
-            or_(
-                User.email.contains(search),
-                User.full_name.contains(search)
-                if User.full_name.isnot(None)
-                else False,
-            )
-        )
-
-    # Get count
-    count_query = (
-        select(func.count())
-        .select_from(User)
-        .where(User.id != current_user.id, User.is_active.is_(True))
+    # Get users using repository
+    users, count = UserRepository.get_active_users_for_chat(
+        session, current_user.id, skip=skip, limit=limit, search=search
     )
-    if search:
-        count_query = count_query.where(
-            or_(
-                User.email.contains(search),
-                User.full_name.contains(search)
-                if User.full_name.isnot(None)
-                else False,
-            )
-        )
-    count = session.exec(count_query).one()
-
-    # Get users
-    query = query.offset(skip).limit(limit).order_by(User.email)
-    users = list(session.exec(query).all())
 
     # Format response
     users_data = [

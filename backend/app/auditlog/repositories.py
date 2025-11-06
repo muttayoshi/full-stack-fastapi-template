@@ -1,117 +1,104 @@
+"""Repository layer for audit log functionality."""
 import uuid
-from datetime import datetime, timezone
-from typing import Any
 
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, col, select
 
 from app.auditlog.models import AuditAction, AuditLog
 
 
-def create_audit_log(
-    *,
-    session: Session,
-    table_name: str,
-    record_id: str,
-    action: AuditAction,
-    old_values: dict[str, Any] | None = None,
-    new_values: dict[str, Any] | None = None,
-    changed_fields: list[str] | None = None,
-    user_id: uuid.UUID | None = None,
-    ip_address: str | None = None,
-    user_agent: str | None = None,
-    session_id: str | None = None,
-    additional_info: dict[str, Any] | None = None,
-) -> AuditLog:
-    """Create a new audit log entry in the database."""
-    audit_log = AuditLog(
-        table_name=table_name,
-        record_id=record_id,
-        action=action,
-        old_values=old_values,
-        new_values=new_values,
-        changed_fields=changed_fields,
-        user_id=user_id,
-        timestamp=datetime.now(timezone.utc),
-        ip_address=ip_address,
-        user_agent=user_agent,
-        session_id=session_id,
-        additional_info=additional_info,
-    )
-    session.add(audit_log)
-    # Don't commit or flush here when called from event handlers
-    # The session will be committed by the parent transaction
-    return audit_log
+class AuditLogRepository:
+    """Repository for database operations on AuditLog model."""
 
+    @staticmethod
+    def get_all(
+        session: Session,
+        user_id: uuid.UUID | None = None,
+        table_name: str | None = None,
+        record_id: str | None = None,
+        action: AuditAction | None = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> tuple[list[AuditLog], int]:
+        """Get audit logs with filters and pagination."""
+        # Build query
+        statement = select(AuditLog)
 
-def get_audit_logs(
-    *,
-    session: Session,
-    table_name: str | None = None,
-    record_id: str | None = None,
-    user_id: uuid.UUID | None = None,
-    action: AuditAction | None = None,
-    skip: int = 0,
-    limit: int = 100,
-) -> tuple[list[AuditLog], int]:
-    """Get audit logs with filters and pagination."""
-    # Build count query
-    count_query = select(func.count()).select_from(AuditLog)
+        # Apply filters
+        if user_id:
+            statement = statement.where(AuditLog.user_id == user_id)
+        if table_name:
+            statement = statement.where(AuditLog.table_name == table_name)
+        if record_id:
+            statement = statement.where(AuditLog.record_id == record_id)
+        if action:
+            statement = statement.where(AuditLog.action == action)
 
-    # Build data query
-    query = select(AuditLog)
+        # Count total
+        count_statement = select(AuditLog.id).where(statement.whereclause)
+        count = len(session.exec(count_statement).all())
 
-    # Apply filters
-    if table_name:
-        count_query = count_query.where(AuditLog.table_name == table_name)
-        query = query.where(AuditLog.table_name == table_name)
-    if record_id:
-        count_query = count_query.where(AuditLog.record_id == record_id)
-        query = query.where(AuditLog.record_id == record_id)
-    if user_id:
-        count_query = count_query.where(AuditLog.user_id == user_id)
-        query = query.where(AuditLog.user_id == user_id)
-    if action:
-        count_query = count_query.where(AuditLog.action == action)
-        query = query.where(AuditLog.action == action)
+        # Get paginated results
+        statement = (
+            statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+        )
+        audit_logs = list(session.exec(statement).all())
 
-    # Get count
-    count = session.exec(count_query).one()
+        return audit_logs, count
 
-    # Apply ordering and pagination
-    query = query.order_by(col(AuditLog.timestamp).desc())
-    query = query.offset(skip).limit(limit)
+    @staticmethod
+    def get_by_id(session: Session, audit_log_id: uuid.UUID) -> AuditLog | None:
+        """Get a specific audit log by ID."""
+        return session.get(AuditLog, audit_log_id)
 
-    # Execute query
-    audit_logs = session.exec(query).all()
+    @staticmethod
+    def get_record_history(
+        session: Session,
+        table_name: str,
+        record_id: str,
+        user_id: uuid.UUID | None = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> tuple[list[AuditLog], int]:
+        """Get complete audit history for a specific record."""
+        # Build query
+        statement = (
+            select(AuditLog)
+            .where(AuditLog.table_name == table_name)
+            .where(AuditLog.record_id == record_id)
+        )
 
-    return list(audit_logs), count
+        # Filter by user if provided
+        if user_id:
+            statement = statement.where(AuditLog.user_id == user_id)
 
+        # Count total
+        count_statement = select(AuditLog.id).where(statement.whereclause)
+        count = len(session.exec(count_statement).all())
 
-def get_record_history(
-    *,
-    session: Session,
-    table_name: str,
-    record_id: str,
-    skip: int = 0,
-    limit: int = 100,
-) -> tuple[list[AuditLog], int]:
-    """Get audit history for a specific record."""
-    return get_audit_logs(
-        session=session,
-        table_name=table_name,
-        record_id=record_id,
-        skip=skip,
-        limit=limit,
-    )
+        # Get paginated results ordered by timestamp
+        statement = (
+            statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+        )
+        audit_logs = list(session.exec(statement).all())
 
+        return audit_logs, count
 
-def get_user_activities(
-    *, session: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 50
-) -> tuple[list[AuditLog], int]:
-    """Get activities for a specific user."""
-    return get_audit_logs(session=session, user_id=user_id, skip=skip, limit=limit)
+    @staticmethod
+    def get_by_user(
+        session: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 100
+    ) -> tuple[list[AuditLog], int]:
+        """Get all audit logs for a specific user."""
+        # Build query
+        statement = select(AuditLog).where(AuditLog.user_id == user_id)
 
+        # Count total
+        count_statement = select(AuditLog.id).where(statement.whereclause)
+        count = len(session.exec(count_statement).all())
 
-def get_audit_log_by_id(*, session: Session, audit_id: uuid.UUID) -> AuditLog | None:
-    """Get a specific audit log by ID."""
-    return session.get(AuditLog, audit_id)
+        # Get paginated results
+        statement = (
+            statement.order_by(col(AuditLog.timestamp).desc()).offset(skip).limit(limit)
+        )
+        audit_logs = list(session.exec(statement).all())
+
+        return audit_logs, count

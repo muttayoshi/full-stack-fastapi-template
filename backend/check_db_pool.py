@@ -37,14 +37,20 @@ def check_pool_status():
 
     # Get pool configuration
     logger.info("\nPool Configuration:")
-    logger.info(f"  Max pool size: {pool._pool.maxsize if hasattr(pool, '_pool') else 'N/A'}")
+    logger.info(
+        f"  Max pool size: {pool._pool.maxsize if hasattr(pool, '_pool') else 'N/A'}"
+    )
     logger.info(f"  Pool class: {pool.__class__.__name__}")
 
     # Check for leaked connections
     checked_out = pool.checkedout()
     if checked_out > 0:
-        logger.warning(f"\n⚠️  WARNING: {checked_out} connections are currently checked out")
-        logger.warning("This is normal during active requests, but if this number stays high,")
+        logger.warning(
+            f"\n⚠️  WARNING: {checked_out} connections are currently checked out"
+        )
+        logger.warning(
+            "This is normal during active requests, but if this number stays high,"
+        )
         logger.warning("you may have connection leaks.")
     else:
         logger.info("\n✅ No connections currently checked out (pool is clean)")
@@ -56,7 +62,9 @@ def check_pool_status():
         logger.info(f"\nPool usage: {usage_percent:.1f}%")
 
         if usage_percent > 80:
-            logger.warning("⚠️  Pool usage is high (>80%). Consider increasing pool_size.")
+            logger.warning(
+                "⚠️  Pool usage is high (>80%). Consider increasing pool_size."
+            )
         elif usage_percent > 50:
             logger.info("ℹ️  Pool usage is moderate (>50%).")
 
@@ -92,7 +100,7 @@ def check_for_long_running_queries():
         with Session(engine) as session:
             # PostgreSQL specific query
             query = """
-                SELECT 
+                SELECT
                     pid,
                     now() - query_start as duration,
                     state,
@@ -108,7 +116,9 @@ def check_for_long_running_queries():
                 if result:
                     logger.info("Long-running queries found:")
                     for row in result:
-                        logger.info(f"  PID: {row[0]}, Duration: {row[1]}, State: {row[2]}")
+                        logger.info(
+                            f"  PID: {row[0]}, Duration: {row[1]}, State: {row[2]}"
+                        )
                         logger.info(f"  Query: {row[3][:100]}...")
                 else:
                     logger.info("✅ No long-running queries found")
@@ -145,4 +155,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
