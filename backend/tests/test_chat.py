@@ -2,17 +2,12 @@
 Test script untuk WebSocket Chat Feature
 Jalankan: python -m pytest backend/tests/test_chat.py -v
 """
-import uuid
-from datetime import datetime
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.chat.models import Message, Room, RoomMember
-from app.chat.services import MessageService, RoomService
 from app.chat.schemas import MessageCreate, RoomCreate, RoomMemberCreate
-from app.main import app
+from app.chat.services import MessageService, RoomService
 from app.users.models import User
 
 
@@ -38,7 +33,9 @@ def test_create_room(session: Session, normal_user: User) -> None:
     assert members[0].is_admin is True
 
 
-def test_add_member_to_room(session: Session, normal_user: User, other_user: User) -> None:
+def test_add_member_to_room(
+    session: Session, normal_user: User, other_user: User
+) -> None:
     """Test adding a member to a room."""
     # Create room
     room_data = RoomCreate(name="Test Room", is_private=False)
@@ -79,7 +76,9 @@ def test_create_room_message(session: Session, normal_user: User) -> None:
     assert message.is_read is False
 
 
-def test_create_direct_message(session: Session, normal_user: User, other_user: User) -> None:
+def test_create_direct_message(
+    session: Session, normal_user: User, other_user: User
+) -> None:
     """Test creating a direct message between two users."""
     message_data = MessageCreate(
         recipient_id=other_user.id,
@@ -110,7 +109,9 @@ def test_get_room_messages(session: Session, normal_user: User) -> None:
         MessageService.create_message(session, message_data, normal_user.id)
 
     # Get messages
-    messages, count = MessageService.get_room_messages(session, room.id, skip=0, limit=10)
+    messages, count = MessageService.get_room_messages(
+        session, room.id, skip=0, limit=10
+    )
 
     assert count == 5
     assert len(messages) == 5
@@ -147,7 +148,9 @@ def test_get_direct_messages(
     assert len(messages) == 5
 
 
-def test_mark_message_as_read(session: Session, normal_user: User, other_user: User) -> None:
+def test_mark_message_as_read(
+    session: Session, normal_user: User, other_user: User
+) -> None:
     """Test marking a message as read."""
     # Create direct message
     message_data = MessageCreate(
@@ -166,7 +169,9 @@ def test_mark_message_as_read(session: Session, normal_user: User, other_user: U
     assert updated_message.is_read is True
 
 
-def test_room_api_endpoints(client: TestClient, normal_user_token_headers: dict) -> None:
+def test_room_api_endpoints(
+    client: TestClient, normal_user_token_headers: dict
+) -> None:
     """Test room API endpoints."""
     # Create room
     response = client.post(
@@ -224,4 +229,3 @@ def test_websocket_connection(client: TestClient, normal_user_token: str) -> Non
         data = websocket.receive_json()
         assert data["type"] == "connected"
         assert "Welcome" in data["message"]
-

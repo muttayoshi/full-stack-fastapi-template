@@ -3,7 +3,15 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from sqlmodel import Session
 
 from app.api.deps import CurrentUser, SessionDep
@@ -36,7 +44,6 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 async def get_current_user_ws(
-    websocket: WebSocket,
     token: str = Query(...),
     session: Session = Depends(SessionDep),
 ) -> User | None:
@@ -44,10 +51,15 @@ async def get_current_user_ws(
 
     Note: WebSocket should be accepted before calling this function.
     """
+    import logging
+
     import jwt
     from jwt.exceptions import InvalidTokenError
     from pydantic import ValidationError
+
     from app.users.schemas import TokenPayload
+
+    logger = logging.getLogger(__name__)
 
     try:
         payload = jwt.decode(
@@ -55,18 +67,18 @@ async def get_current_user_ws(
         )
         token_data = TokenPayload(**payload)
     except (InvalidTokenError, ValidationError) as e:
-        print(f"❌ WebSocket auth failed - Invalid token: {e}")
+        logger.error("WebSocket auth failed - Invalid token: %s", e)
         return None
 
     user = session.get(User, token_data.sub)
     if not user:
-        print(f"❌ WebSocket auth failed - User not found: {token_data.sub}")
+        logger.error("WebSocket auth failed - User not found: %s", token_data.sub)
         return None
     if not user.is_active:
-        print(f"❌ WebSocket auth failed - Inactive user: {user.email}")
+        logger.error("WebSocket auth failed - Inactive user: %s", user.email)
         return None
 
-    print(f"✅ WebSocket auth successful - User: {user.email}")
+    logger.info("WebSocket auth successful - User: %s", user.email)
     return user
 
 
@@ -90,25 +102,33 @@ async def websocket_endpoint(
     }
     """
     # Accept WebSocket connection first
+    import logging
+
+    from app.core.db import engine
+
+    logger = logging.getLogger(__name__)
+
     await websocket.accept()
-    print(f"🔌 WebSocket connection accepted from client")
+    logger.info("WebSocket connection accepted from client")
 
     # Create database session manually (will be used throughout the connection)
-    from app.core.db import engine
+
     db = Session(engine)
 
     try:
         # Authenticate user
-        user = await get_current_user_ws(websocket, token, db)
+        user = await get_current_user_ws(token, db)
         if not user:
             # User authentication failed, close connection with error
-            print(f"❌ Authentication failed, closing connection")
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed")
+            logger.warning("Authentication failed, closing connection")
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed"
+            )
             return
 
         # Register user in connection manager (websocket already accepted)
         manager.active_connections[user.id] = websocket
-        print(f"✅ User {user.email} connected via WebSocket")
+        logger.info("User %s connected via WebSocket", user.email)
 
         # Send welcome message
         welcome_msg = WSResponse(
@@ -116,7 +136,9 @@ async def websocket_endpoint(
             message=f"Welcome {user.full_name or user.email}!",
             data={"user_id": str(user.id)},
         )
-        await manager.send_personal_message(welcome_msg.model_dump(mode="json"), user.id)
+        await manager.send_personal_message(
+            welcome_msg.model_dump(mode="json"), user.id
+        )
 
         # Main message loop
         try:
@@ -158,7 +180,9 @@ async def websocket_endpoint(
                             content=ws_msg.content or "",
                             message_type=ws_msg.message_type,
                         )
-                        message = MessageService.create_message(db, message_create, user.id)
+                        message = MessageService.create_message(
+                            db, message_create, user.id
+                        )
 
                         # Broadcast to room
                         response = WSResponse(
@@ -185,7 +209,9 @@ async def websocket_endpoint(
                             content=ws_msg.content or "",
                             message_type=ws_msg.message_type,
                         )
-                        message = MessageService.create_message(db, message_create, user.id)
+                        message = MessageService.create_message(
+                            db, message_create, user.id
+                        )
 
                         # Send to recipient
                         response = WSResponse(
@@ -232,6 +258,7 @@ async def websocket_endpoint(
 
                 elif ws_msg.type == "leave_room":
                     if ws_msg.room_id:
+                        # Unsubscribe from WebSocket room
                         manager.unsubscribe_from_room(user.id, ws_msg.room_id)
 
                         # Notify room
@@ -247,6 +274,16 @@ async def websocket_endpoint(
                         )
                         await manager.broadcast_to_room(
                             response.model_dump(mode="json"), ws_msg.room_id
+                        )
+
+                        # Send confirmation to user
+                        confirm_msg = WSResponse(
+                            type="left_room",
+                            data={"room_id": str(ws_msg.room_id)},
+                            message="You left the room",
+                        )
+                        await manager.send_personal_message(
+                            confirm_msg.model_dump(mode="json"), user.id
                         )
 
                 elif ws_msg.type == "typing":
@@ -269,14 +306,14 @@ async def websocket_endpoint(
 
         except WebSocketDisconnect:
             manager.disconnect(user.id)
-            print(f"🔌 User {user.email} disconnected")
+            logger.info("User %s disconnected", user.email)
         except Exception as e:
             manager.disconnect(user.id)
-            print(f"❌ WebSocket error for user {user.email}: {e}")
+            logger.error("WebSocket error for user %s: %s", user.email, e)
     finally:
         # Close database session
         db.close()
-        print(f"🔌 Database session closed")
+        logger.debug("Database session closed")
 
 
 # ============================================================================
@@ -305,6 +342,7 @@ def create_room(
         created_by=room.created_by,
         created_at=room.created_at,
         member_count=len(members),
+        is_member=True,  # Creator is always a member
     )
 
 
@@ -314,14 +352,25 @@ def get_rooms(
     current_user: CurrentUser,
     skip: int = 0,
     limit: int = Query(default=100, le=100),
+    show_all: bool = Query(
+        default=False, description="Show all public rooms, not just user's rooms"
+    ),
 ) -> Any:
-    """Get all chat rooms."""
-    rooms, count = RoomService.get_rooms(session, skip=skip, limit=limit)
+    """Get all chat rooms. By default shows only public rooms. Use show_all=true to see all public rooms available."""
+    if show_all:
+        # Get all public rooms (including ones user is not a member of)
+        rooms, count = RoomService.get_public_rooms(session, skip=skip, limit=limit)
+    else:
+        # Get only rooms user is a member of
+        rooms, count = RoomService.get_user_rooms(
+            session, current_user.id, skip=skip, limit=limit
+        )
 
-    # Add member count for each room
+    # Add member count and is_member flag for each room
     rooms_public = []
     for room in rooms:
         members = RoomService.get_room_members(session, room.id)
+        is_member = RoomService.is_user_member(session, room.id, current_user.id)
         rooms_public.append(
             RoomPublic(
                 id=room.id,
@@ -331,6 +380,7 @@ def get_rooms(
                 created_by=room.created_by,
                 created_at=room.created_at,
                 member_count=len(members),
+                is_member=is_member,
             )
         )
 
@@ -362,6 +412,7 @@ def get_my_rooms(
                 created_by=room.created_by,
                 created_at=room.created_at,
                 member_count=len(members),
+                is_member=True,  # Always true for my rooms
             )
         )
 
@@ -428,13 +479,16 @@ def update_room(
     # Check if user is admin
     is_admin = RoomService.is_user_admin(session, room_id, current_user.id)
     if not is_admin and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to update this room")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to update this room"
+        )
 
     room = RoomService.update_room(session, room_id, room_in)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
     members = RoomService.get_room_members(session, room.id)
+    is_member = RoomService.is_user_member(session, room.id, current_user.id)
 
     return RoomPublic(
         id=room.id,
@@ -444,6 +498,7 @@ def update_room(
         created_by=room.created_by,
         created_at=room.created_at,
         member_count=len(members),
+        is_member=is_member,
     )
 
 
@@ -460,7 +515,9 @@ def delete_room(
 
     # Check if user is creator or superuser
     if room.created_by != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this room")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to delete this room"
+        )
 
     RoomService.delete_room(session, room_id)
 
@@ -489,7 +546,6 @@ def add_room_member(
 
     # Check if current user is admin or adding themselves to non-private room
     is_admin = RoomService.is_user_admin(session, room_id, current_user.id)
-    is_self = member_in.user_id == current_user.id
 
     if room.is_private and not is_admin and not current_user.is_superuser:
         raise HTTPException(
@@ -515,6 +571,71 @@ def add_room_member(
     )
 
 
+@router.post(
+    "/rooms/{room_id}/join",
+    response_model=RoomMemberPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+def join_room(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    room_id: uuid.UUID,
+) -> Any:
+    """Join a room (shortcut for adding yourself as a member)."""
+    room = RoomService.get_room(session, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    # Check if room is private
+    if room.is_private:
+        raise HTTPException(
+            status_code=403, detail="Cannot join private room without invitation"
+        )
+
+    # Add current user as member
+    member_in = RoomMemberCreate(user_id=current_user.id)
+    member = RoomService.add_member(session, room_id, member_in)
+    if not member:
+        raise HTTPException(status_code=400, detail="Failed to join room")
+
+    return RoomMemberPublic(
+        id=member.id,
+        user_id=member.user_id,
+        joined_at=member.joined_at,
+        is_admin=member.is_admin,
+        user_email=current_user.email,
+        user_full_name=current_user.full_name,
+    )
+
+
+@router.post("/rooms/{room_id}/leave", status_code=status.HTTP_204_NO_CONTENT)
+def leave_room(
+    session: SessionDep,
+    current_user: CurrentUser,
+    room_id: uuid.UUID,
+) -> None:
+    """Leave a room (shortcut for removing yourself as a member)."""
+    room = RoomService.get_room(session, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    # Don't allow removing the creator if they're the only admin
+    if room.created_by == current_user.id:
+        # Count admins
+        members = RoomService.get_room_members(session, room_id)
+        admin_count = sum(1 for m in members if m.is_admin)
+        if admin_count == 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot leave room as the only admin. Please assign another admin first or delete the room.",
+            )
+
+    success = RoomService.remove_member(session, room_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="You are not a member of this room")
+
+
 @router.delete(
     "/rooms/{room_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT
 )
@@ -534,7 +655,9 @@ def remove_room_member(
     is_self = user_id == current_user.id
 
     if not is_admin and not is_self and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to remove this member")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to remove this member"
+        )
 
     # Don't allow removing the creator if they're the only admin
     if room.created_by == user_id:
@@ -681,7 +804,103 @@ def delete_message(
 
     # Check if user is sender or superuser
     if message.sender_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this message")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to delete this message"
+        )
 
     MessageService.delete_message(session, message_id)
 
+
+# ============================================================================
+# Direct Message / User Endpoints
+# ============================================================================
+
+
+@router.get("/users", response_model=Any)
+def get_users_for_chat(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = Query(default=100, le=100),
+    search: str = Query(default="", description="Search users by email or name"),
+) -> Any:
+    """Get users for direct messaging."""
+    from sqlmodel import func, or_, select
+
+    # Build query
+    query = select(User).where(User.id != current_user.id, User.is_active.is_(True))
+
+    # Add search filter if provided
+    if search:
+        query = query.where(
+            or_(
+                User.email.contains(search),
+                User.full_name.contains(search)
+                if User.full_name.isnot(None)
+                else False,
+            )
+        )
+
+    # Get count
+    count_query = (
+        select(func.count())
+        .select_from(User)
+        .where(User.id != current_user.id, User.is_active.is_(True))
+    )
+    if search:
+        count_query = count_query.where(
+            or_(
+                User.email.contains(search),
+                User.full_name.contains(search)
+                if User.full_name.isnot(None)
+                else False,
+            )
+        )
+    count = session.exec(count_query).one()
+
+    # Get users
+    query = query.offset(skip).limit(limit).order_by(User.email)
+    users = list(session.exec(query).all())
+
+    # Format response
+    users_data = [
+        {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+            "is_online": manager.is_user_online(user.id),
+        }
+        for user in users
+    ]
+
+    return {"data": users_data, "count": count}
+
+
+@router.get("/conversations", response_model=Any)
+def get_conversations(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """Get list of users that current user has direct message conversations with."""
+    conversations = MessageService.get_user_conversations(session, current_user.id)
+
+    # Format response with user details and last message
+    conversations_data = []
+    for conv in conversations:
+        other_user = session.get(User, conv["user_id"])
+        if other_user:
+            conversations_data.append(
+                {
+                    "user_id": str(conv["user_id"]),
+                    "user_email": other_user.email,
+                    "user_full_name": other_user.full_name,
+                    "last_message": conv["last_message"],
+                    "last_message_at": conv["last_message_at"].isoformat()
+                    if conv["last_message_at"]
+                    else None,
+                    "unread_count": conv["unread_count"],
+                    "is_online": manager.is_user_online(conv["user_id"]),
+                }
+            )
+
+    return {"data": conversations_data, "count": len(conversations_data)}

@@ -1,7 +1,7 @@
 """Service layer for chat functionality."""
 import uuid
 
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
 from app.chat.models import Message, Room, RoomMember
 from app.chat.schemas import MessageCreate, RoomCreate, RoomMemberCreate, RoomUpdate
@@ -49,7 +49,30 @@ class RoomService:
         count_statement = select(func.count()).select_from(Room)
         count = session.exec(count_statement).one()
 
-        statement = select(Room).offset(skip).limit(limit).order_by(Room.created_at.desc())
+        statement = (
+            select(Room).offset(skip).limit(limit).order_by(Room.created_at.desc())
+        )
+        rooms = list(session.exec(statement).all())
+
+        return rooms, count
+
+    @staticmethod
+    def get_public_rooms(
+        session: Session, skip: int = 0, limit: int = 100
+    ) -> tuple[list[Room], int]:
+        """Get all public (non-private) rooms with pagination."""
+        count_statement = (
+            select(func.count()).select_from(Room).where(Room.is_private.is_(False))
+        )
+        count = session.exec(count_statement).one()
+
+        statement = (
+            select(Room)
+            .where(Room.is_private.is_(False))
+            .offset(skip)
+            .limit(limit)
+            .order_by(Room.created_at.desc())
+        )
         rooms = list(session.exec(statement).all())
 
         return rooms, count
@@ -134,9 +157,7 @@ class RoomService:
         return member
 
     @staticmethod
-    def remove_member(
-        session: Session, room_id: uuid.UUID, user_id: uuid.UUID
-    ) -> bool:
+    def remove_member(session: Session, room_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """Remove a member from a room."""
         statement = select(RoomMember).where(
             RoomMember.room_id == room_id,
@@ -168,14 +189,12 @@ class RoomService:
         return session.exec(statement).first() is not None
 
     @staticmethod
-    def is_user_admin(
-        session: Session, room_id: uuid.UUID, user_id: uuid.UUID
-    ) -> bool:
+    def is_user_admin(session: Session, room_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """Check if a user is an admin of a room."""
         statement = select(RoomMember).where(
             RoomMember.room_id == room_id,
             RoomMember.user_id == user_id,
-            RoomMember.is_admin == True,
+            RoomMember.is_admin.is_(True),
         )
         return session.exec(statement).first() is not None
 
@@ -214,9 +233,7 @@ class MessageService:
     ) -> tuple[list[Message], int]:
         """Get all messages in a room."""
         count_statement = (
-            select(func.count())
-            .select_from(Message)
-            .where(Message.room_id == room_id)
+            select(func.count()).select_from(Message).where(Message.room_id == room_id)
         )
         count = session.exec(count_statement).one()
 
@@ -312,3 +329,55 @@ class MessageService:
         session.commit()
         return True
 
+    @staticmethod
+    def get_user_conversations(session: Session, user_id: uuid.UUID) -> list[dict]:
+        """Get list of users that the given user has conversations with."""
+        from sqlmodel import or_
+
+        # Get all users that have direct messages with current user
+        # Messages where user is sender or recipient
+        statement = (
+            select(Message)
+            .where(
+                Message.room_id.is_(None),
+                or_(
+                    Message.sender_id == user_id,
+                    Message.recipient_id == user_id,
+                ),
+            )
+            .order_by(Message.created_at.desc())
+        )
+        messages = list(session.exec(statement).all())
+
+        # Group by other user
+        conversations = {}
+        for message in messages:
+            # Determine the other user
+            other_user_id = (
+                message.recipient_id
+                if message.sender_id == user_id
+                else message.sender_id
+            )
+
+            if other_user_id and other_user_id not in conversations:
+                # Count unread messages from this user
+                unread_statement = (
+                    select(func.count())
+                    .select_from(Message)
+                    .where(
+                        Message.room_id.is_(None),
+                        Message.sender_id == other_user_id,
+                        Message.recipient_id == user_id,
+                        Message.is_read.is_(False),
+                    )
+                )
+                unread_count = session.exec(unread_statement).one()
+
+                conversations[other_user_id] = {
+                    "user_id": other_user_id,
+                    "last_message": message.content,
+                    "last_message_at": message.created_at,
+                    "unread_count": unread_count,
+                }
+
+        return list(conversations.values())

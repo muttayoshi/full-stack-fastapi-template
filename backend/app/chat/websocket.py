@@ -1,7 +1,6 @@
 """WebSocket connection manager for chat functionality."""
 import json
 import uuid
-from typing import Dict, Set
 
 from fastapi import WebSocket
 
@@ -11,9 +10,9 @@ class ConnectionManager:
 
     def __init__(self) -> None:
         # Active connections: {user_id: WebSocket}
-        self.active_connections: Dict[uuid.UUID, WebSocket] = {}
+        self.active_connections: dict[uuid.UUID, WebSocket] = {}
         # Room subscriptions: {room_id: {user_id, user_id, ...}}
-        self.room_subscriptions: Dict[uuid.UUID, Set[uuid.UUID]] = {}
+        self.room_subscriptions: dict[uuid.UUID, set[uuid.UUID]] = {}
 
     async def connect(self, websocket: WebSocket, user_id: uuid.UUID) -> None:
         """Accept and store a new WebSocket connection."""
@@ -47,9 +46,7 @@ class ConnectionManager:
             if not self.room_subscriptions[room_id]:
                 del self.room_subscriptions[room_id]
 
-    async def send_personal_message(
-        self, message: dict, user_id: uuid.UUID
-    ) -> bool:
+    async def send_personal_message(self, message: dict, user_id: uuid.UUID) -> bool:
         """Send a message to a specific user."""
         if user_id in self.active_connections:
             try:
@@ -85,7 +82,7 @@ class ConnectionManager:
                 sent_count += 1
         return sent_count
 
-    def get_room_users(self, room_id: uuid.UUID) -> Set[uuid.UUID]:
+    def get_room_users(self, room_id: uuid.UUID) -> set[uuid.UUID]:
         """Get all users subscribed to a room."""
         return self.room_subscriptions.get(room_id, set()).copy()
 
@@ -93,11 +90,10 @@ class ConnectionManager:
         """Check if a user is currently connected."""
         return user_id in self.active_connections
 
-    def get_online_users(self) -> Set[uuid.UUID]:
+    def get_online_users(self) -> set[uuid.UUID]:
         """Get all currently connected users."""
         return set(self.active_connections.keys())
 
 
 # Global connection manager instance
 manager = ConnectionManager()
-

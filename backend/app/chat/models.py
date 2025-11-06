@@ -27,9 +27,7 @@ class Room(SQLModel, AuditMixin, table=True):
     members: list["RoomMember"] = Relationship(
         back_populates="room", cascade_delete=True
     )  # type: ignore
-    messages: list["Message"] = Relationship(
-        back_populates="room", cascade_delete=True
-    )  # type: ignore
+    messages: list["Message"] = Relationship(back_populates="room", cascade_delete=True)  # type: ignore
 
 
 class RoomMember(SQLModel, table=True):
@@ -76,4 +74,3 @@ class Message(SQLModel, AuditMixin, table=True):
     recipient: Optional["User"] = Relationship(  # type: ignore
         sa_relationship_kwargs={"foreign_keys": "Message.recipient_id"}
     )
-
