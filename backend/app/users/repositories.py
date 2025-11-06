@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.core.security import get_password_hash, verify_password
 from app.users.models import Role, User, UserRole
@@ -122,10 +122,10 @@ def get_roles(
 
 def count_roles(*, session: Session, is_active: bool | None = None) -> int:
     """Count total roles."""
-    statement = select(Role)
+    statement = select(func.count()).select_from(Role)
     if is_active is not None:
         statement = statement.where(Role.is_active == is_active)
-    return len(list(session.exec(statement).all()))
+    return session.exec(statement).one()
 
 
 def delete_role(*, session: Session, role_id: uuid.UUID) -> bool:
@@ -267,7 +267,7 @@ def count_user_roles(
     is_active: bool | None = None,
 ) -> int:
     """Count total user role assignments with filters."""
-    statement = select(UserRole)
+    statement = select(func.count()).select_from(UserRole)
 
     if user_id is not None:
         statement = statement.where(UserRole.user_id == user_id)
@@ -281,4 +281,4 @@ def count_user_roles(
     if is_active is not None:
         statement = statement.where(UserRole.is_active == is_active)
 
-    return len(list(session.exec(statement).all()))
+    return session.exec(statement).one()
