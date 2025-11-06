@@ -238,8 +238,12 @@ class OAuthService:
                     extra={"error": str(e), "error_type": type(e).__name__},
                 )
                 return None
-            except httpx.TimeoutException:
-                logger.error("Google OAuth request timed out")
+            except httpx.TimeoutException as e:
+                logger.error(
+                    "Google OAuth request timed out",
+                    extra={"error": str(e), "error_type": type(e).__name__},
+                    exc_info=True,
+                )
                 return None
             except Exception as e:
                 logger.error(
