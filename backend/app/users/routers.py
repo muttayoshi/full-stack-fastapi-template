@@ -24,16 +24,25 @@ from app.users.schemas import (
     GoogleAuthRequest,
     GoogleAuthResponse,
     NewPassword,
+    RoleCreate,
+    RolePublic,
+    RolesPublic,
+    RoleUpdate,
     Token,
     UpdatePassword,
     UserCreate,
     UserPublic,
     UserRegister,
+    UserRoleCreate,
+    UserRolePublic,
+    UserRolesPublic,
+    UserRoleUpdate,
+    UserRoleWithDetails,
     UsersPublic,
     UserUpdate,
     UserUpdateMe,
 )
-from app.users.services import OAuthService, UserService
+from app.users.services import OAuthService, RoleService, UserRoleService, UserService
 from app.utils import (
     generate_new_account_email,
     generate_password_reset_token,
@@ -52,6 +61,12 @@ oauth_router = APIRouter(prefix="/oauth", tags=["oauth"])
 auth_router = APIRouter(tags=["login"])
 
 users_router = APIRouter(prefix="/users", tags=["users"])
+
+# Role management endpoints
+roles_router = APIRouter(prefix="/roles", tags=["roles"])
+
+# UserRole management endpoints
+user_roles_router = APIRouter(prefix="/user-roles", tags=["user-roles"])
 
 
 @auth_router.post("/login/access-token")
@@ -491,10 +506,310 @@ async def google_login(
         )
 
 
+# ============================================================================
+# Role Management Endpoints
+# ============================================================================
+
+
+@roles_router.get("/", response_model=RolesPublic)
+def read_roles(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+    is_active: bool | None = None,
+) -> Any:
+    """
+    Retrieve all roles with pagination.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    roles = RoleService.get_roles(
+        session=session, skip=skip, limit=limit, is_active=is_active
+    )
+    count = RoleService.count_roles(session=session, is_active=is_active)
+
+    return RolesPublic(data=roles, count=count)
+
+
+@roles_router.post("/", response_model=RolePublic)
+def create_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    role_in: RoleCreate,
+) -> Any:
+    """
+    Create new role.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    try:
+        role = RoleService.create_role(session=session, role_create=role_in)
+        return role
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@roles_router.get("/{role_id}", response_model=RolePublic)
+def read_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    role_id: uuid.UUID,
+) -> Any:
+    """
+    Get role by ID.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    role = RoleService.get_role_by_id(session=session, role_id=role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    return role
+
+
+@roles_router.patch("/{role_id}", response_model=RolePublic)
+def update_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    role_id: uuid.UUID,
+    role_in: RoleUpdate,
+) -> Any:
+    """
+    Update a role.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    role = RoleService.get_role_by_id(session=session, role_id=role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    try:
+        role = RoleService.update_role(session=session, db_role=role, role_in=role_in)
+        return role
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@roles_router.delete("/{role_id}")
+def delete_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    role_id: uuid.UUID,
+) -> Message:
+    """
+    Delete a role.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    role = RoleService.get_role_by_id(session=session, role_id=role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    success = RoleService.delete_role(session=session, role_id=role_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete role")
+
+    return Message(message="Role deleted successfully")
+
+
+# ============================================================================
+# UserRole Management Endpoints
+# ============================================================================
+
+
+@user_roles_router.get("/", response_model=UserRolesPublic)
+def read_user_roles(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100,
+    user_id: uuid.UUID | None = None,
+    role_id: uuid.UUID | None = None,
+    site_id: uuid.UUID | None = None,
+    is_active: bool | None = None,
+) -> Any:
+    """
+    Retrieve all user role assignments with pagination and filters.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    user_roles = UserRoleService.get_user_roles(
+        session=session,
+        skip=skip,
+        limit=limit,
+        user_id=user_id,
+        role_id=role_id,
+        site_id=site_id,
+        is_active=is_active,
+    )
+    count = UserRoleService.count_user_roles(
+        session=session,
+        user_id=user_id,
+        role_id=role_id,
+        site_id=site_id,
+        is_active=is_active,
+    )
+
+    return UserRolesPublic(data=user_roles, count=count)
+
+
+@user_roles_router.post("/", response_model=UserRolePublic)
+def create_user_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_role_in: UserRoleCreate,
+) -> Any:
+    """
+    Create new user role assignment.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    try:
+        user_role = UserRoleService.create_user_role(
+            session=session, user_role_create=user_role_in
+        )
+        return user_role
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@user_roles_router.get("/user/{user_id}", response_model=list[UserRoleWithDetails])
+def read_user_roles_by_user(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_id: uuid.UUID,
+    site_id: uuid.UUID | None = None,
+    is_active: bool | None = None,
+) -> Any:
+    """
+    Get all roles for a specific user with details.
+    Users can view their own roles, superusers can view any user's roles.
+    """
+    # Allow users to view their own roles
+    if user_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    user_roles = UserRoleService.get_user_roles_with_details(
+        session=session, user_id=user_id, site_id=site_id, is_active=is_active
+    )
+    return user_roles
+
+
+@user_roles_router.get("/me", response_model=list[UserRoleWithDetails])
+def read_my_user_roles(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    site_id: uuid.UUID | None = None,
+) -> Any:
+    """
+    Get current user's roles with details.
+    """
+    user_roles = UserRoleService.get_user_roles_with_details(
+        session=session, user_id=current_user.id, site_id=site_id, is_active=True
+    )
+    return user_roles
+
+
+@user_roles_router.get("/{user_role_id}", response_model=UserRolePublic)
+def read_user_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_role_id: uuid.UUID,
+) -> Any:
+    """
+    Get user role assignment by ID.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    user_role = UserRoleService.get_user_role_by_id(
+        session=session, user_role_id=user_role_id
+    )
+    if not user_role:
+        raise HTTPException(status_code=404, detail="User role assignment not found")
+    return user_role
+
+
+@user_roles_router.patch("/{user_role_id}", response_model=UserRolePublic)
+def update_user_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_role_id: uuid.UUID,
+    user_role_in: UserRoleUpdate,
+) -> Any:
+    """
+    Update a user role assignment.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    user_role = UserRoleService.get_user_role_by_id(
+        session=session, user_role_id=user_role_id
+    )
+    if not user_role:
+        raise HTTPException(status_code=404, detail="User role assignment not found")
+
+    try:
+        user_role = UserRoleService.update_user_role(
+            session=session, db_user_role=user_role, user_role_in=user_role_in
+        )
+        return user_role
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@user_roles_router.delete("/{user_role_id}")
+def delete_user_role(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_role_id: uuid.UUID,
+) -> Message:
+    """
+    Delete a user role assignment.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    user_role = UserRoleService.get_user_role_by_id(
+        session=session, user_role_id=user_role_id
+    )
+    if not user_role:
+        raise HTTPException(status_code=404, detail="User role assignment not found")
+
+    success = UserRoleService.delete_user_role(
+        session=session, user_role_id=user_role_id
+    )
+    if not success:
+        raise HTTPException(
+            status_code=500, detail="Failed to delete user role assignment"
+        )
+
+    return Message(message="User role assignment deleted successfully")
+
+
 # Include all routers in the main router
 router.include_router(auth_router)
 router.include_router(users_router)
 router.include_router(oauth_router)
+router.include_router(roles_router)
+router.include_router(user_roles_router)
 
 if settings.ENVIRONMENT == "local":
     router.include_router(private_router)

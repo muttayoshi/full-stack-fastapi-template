@@ -2,7 +2,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, Column
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 from app.core.auditlog import AuditMixin
 

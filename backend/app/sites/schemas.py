@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class SiteBase(BaseModel):
     """Base schema for Site"""
+
     domain: str = Field(
         ...,
         max_length=255,
@@ -30,11 +31,13 @@ class SiteBase(BaseModel):
 
 class SiteCreate(SiteBase):
     """Schema for creating a new site"""
+
     pass
 
 
 class SiteUpdate(BaseModel):
     """Schema for updating a site"""
+
     domain: str | None = None
     name: str | None = None
     frontend_domain: str | None = None
@@ -45,11 +48,13 @@ class SiteUpdate(BaseModel):
 
 class SitePublic(SiteBase):
     """Public schema for Site"""
+
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
 
 
 class SitesPublic(BaseModel):
     """Schema for list of sites"""
+
     data: list[SitePublic]
     count: int
