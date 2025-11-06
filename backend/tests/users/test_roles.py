@@ -3,18 +3,19 @@ Tests for Role and UserRole models, services, and endpoints.
 """
 
 import uuid
-import pytest
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.users.models import Role, UserRole
-from app.users.schemas import RoleCreate, RoleUpdate, UserRoleCreate, UserRoleUpdate
+from app.users.schemas import RoleCreate, UserRoleCreate
 from app.users.services import RoleService, UserRoleService
 
 
 def test_create_role(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,  # noqa:ARG001
 ) -> None:
     """Test creating a new role."""
     data = {
@@ -36,7 +37,9 @@ def test_create_role(
 
 
 def test_create_duplicate_role(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,  # noqa:ARG001
 ) -> None:
     """Test that creating duplicate role name fails."""
     data = {
@@ -177,10 +180,10 @@ def test_create_user_role(
     db: Session,
 ) -> None:
     """Test creating a user role assignment."""
-    from app.users.services import UserService
-    from app.users.schemas import UserCreate
-    from app.sites.services import SiteService
     from app.sites.schemas import SiteCreate
+    from app.sites.services import SiteService
+    from app.users.schemas import UserCreate
+    from app.users.services import UserService
 
     # Create test user
     user = UserService.create_user(
@@ -238,8 +241,8 @@ def test_create_global_user_role(
     db: Session,
 ) -> None:
     """Test creating a global user role assignment (site_id=None)."""
-    from app.users.services import UserService
     from app.users.schemas import UserCreate
+    from app.users.services import UserService
 
     # Create test user
     user = UserService.create_user(
@@ -284,8 +287,8 @@ def test_read_user_roles_by_user(
     db: Session,
 ) -> None:
     """Test reading user roles for a specific user."""
-    from app.users.services import UserService
     from app.users.schemas import UserCreate
+    from app.users.services import UserService
 
     # Create test user
     user = UserService.create_user(
@@ -342,18 +345,15 @@ def test_read_user_roles_by_user(
 def test_read_my_user_roles(
     client: TestClient,
     normal_user_token_headers: dict[str, str],
-    db: Session,
+    db: Session,  # noqa:ARG001
 ) -> None:
     """Test reading current user's roles."""
-    from app.users.services import UserService
 
     # Get current user
     response = client.get(
         f"{settings.API_V1_STR}/users/me",
         headers=normal_user_token_headers,
     )
-    user_id = response.json()["id"]
-
     # Get user's roles
     response = client.get(
         f"{settings.API_V1_STR}/user-roles/me",
@@ -366,8 +366,8 @@ def test_read_my_user_roles(
 
 def test_has_role_service(db: Session) -> None:
     """Test the has_role service method."""
-    from app.users.services import UserService
     from app.users.schemas import UserCreate
+    from app.users.services import UserService
 
     # Create test user
     user = UserService.create_user(
@@ -449,4 +449,3 @@ def test_user_role_permissions(
         json=data,
     )
     assert response.status_code == 403
-

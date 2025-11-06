@@ -161,3 +161,16 @@ class UserRoleWithDetails(SQLModel):
 class UserRolesPublic(SQLModel):
     data: list[UserRolePublic]
     count: int
+
+
+# Bulk role assignment request
+class UserRolesAssign(SQLModel):
+    role_ids: list[uuid.UUID] = Field(description="List of role IDs to assign")
+    site_id: uuid.UUID | None = Field(
+        default=None, description="Site ID - if None, roles apply to all sites"
+    )
+
+
+# Bulk role deletion request
+class UserRolesDelete(SQLModel):
+    role_ids: list[uuid.UUID] = Field(description="List of role IDs to remove")

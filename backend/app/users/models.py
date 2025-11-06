@@ -90,4 +90,4 @@ class UserRole(SQLModel, AuditMixin, table=True):
     # Relationships
     user: "User" = Relationship(back_populates="user_roles")
     role: "Role" = Relationship(back_populates="user_roles")
-    site: "Site | None" = Relationship()  # type: ignore
+    site: "Site" = Relationship()

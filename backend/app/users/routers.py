@@ -35,6 +35,8 @@ from app.users.schemas import (
     UserRegister,
     UserRoleCreate,
     UserRolePublic,
+    UserRolesAssign,
+    UserRolesDelete,
     UserRolesPublic,
     UserRoleUpdate,
     UserRoleWithDetails,
@@ -372,6 +374,157 @@ def delete_user(
     session.delete(user)
     session.commit()
     return Message(message="User deleted successfully")
+
+
+@users_router.get("/{user_id}/roles", response_model=list[UserRoleWithDetails])
+def get_user_roles(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_id: uuid.UUID,
+    site_id: uuid.UUID | None = None,
+    is_active: bool | None = None,
+) -> Any:
+    """
+    Get all roles for a specific user.
+    Users can view their own roles, superusers can view any user's roles.
+    """
+    # Check if user exists
+    user = UserService.get_user_by_id(session=session, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Allow users to view their own roles, or superusers to view any user's roles
+    if user_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    user_roles = UserRoleService.get_user_roles_with_details(
+        session=session, user_id=user_id, site_id=site_id, is_active=is_active
+    )
+    return user_roles
+
+
+@users_router.post("/{user_id}/roles", response_model=list[UserRolePublic])
+def assign_user_roles(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_id: uuid.UUID,
+    roles_in: UserRolesAssign,
+) -> Any:
+    """
+    Assign multiple roles to a user.
+    Only superusers can assign roles.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    # Check if user exists
+    user = UserService.get_user_by_id(session=session, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Validate that role_ids list is not empty
+    if not roles_in.role_ids:
+        raise HTTPException(status_code=400, detail="No roles provided")
+
+    created_user_roles = []
+    errors = []
+
+    for role_id in roles_in.role_ids:
+        try:
+            user_role_create = UserRoleCreate(
+                user_id=user_id,
+                role_id=role_id,
+                site_id=roles_in.site_id,
+            )
+            user_role = UserRoleService.create_user_role(
+                session=session, user_role_create=user_role_create
+            )
+            created_user_roles.append(user_role)
+        except ValueError as e:
+            # Collect errors but continue processing other roles
+            errors.append(f"Role {role_id}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error assigning role {role_id} to user {user_id}: {str(e)}")
+            errors.append(f"Role {role_id}: Failed to assign")
+
+    # If some roles were assigned successfully, return them with a warning
+    if created_user_roles and errors:
+        logger.warning(
+            f"Partially assigned roles to user {user_id}. Errors: {', '.join(errors)}"
+        )
+    elif not created_user_roles:
+        # If no roles were assigned, raise an error
+        error_message = "; ".join(errors) if errors else "Failed to assign any roles"
+        raise HTTPException(status_code=400, detail=error_message)
+
+    return created_user_roles
+
+
+@users_router.delete("/{user_id}/roles")
+def delete_user_roles(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    user_id: uuid.UUID,
+    roles_in: UserRolesDelete,
+) -> Message:
+    """
+    Remove selected roles from a user.
+    Only superusers can remove roles.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    # Check if user exists
+    user = UserService.get_user_by_id(session=session, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Validate that role_ids list is not empty
+    if not roles_in.role_ids:
+        raise HTTPException(status_code=400, detail="No roles provided")
+
+    deleted_count = 0
+    errors = []
+
+    # Get all user roles for this user
+    user_roles = UserRoleService.get_user_roles_by_user_id(
+        session=session, user_id=user_id
+    )
+
+    for role_id in roles_in.role_ids:
+        # Find the user_role assignment for this role
+        user_role = next((ur for ur in user_roles if ur.role_id == role_id), None)
+
+        if not user_role:
+            errors.append(f"Role {role_id}: Not assigned to user")
+            continue
+
+        try:
+            success = UserRoleService.delete_user_role(
+                session=session, user_role_id=user_role.id
+            )
+            if success:
+                deleted_count += 1
+            else:
+                errors.append(f"Role {role_id}: Failed to delete")
+        except Exception as e:
+            logger.error(f"Error deleting role {role_id} from user {user_id}: {str(e)}")
+            errors.append(f"Role {role_id}: Failed to delete")
+
+    # Return appropriate message
+    if deleted_count == 0:
+        error_message = "; ".join(errors) if errors else "Failed to delete any roles"
+        raise HTTPException(status_code=400, detail=error_message)
+
+    message = f"Successfully deleted {deleted_count} role(s)"
+    if errors:
+        message += f". Errors: {'; '.join(errors)}"
+        logger.warning(f"Partially deleted roles from user {user_id}. {message}")
+
+    return Message(message=message)
 
 
 # Private endpoints for local development

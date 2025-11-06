@@ -12,6 +12,7 @@ Run this script after database migration:
 """
 
 import logging
+
 from sqlmodel import Session, select
 
 from app.core.db import engine
@@ -75,4 +76,3 @@ if __name__ == "__main__":
     logger.info("Creating initial roles...")
     create_initial_roles()
     logger.info("Done!")
-
