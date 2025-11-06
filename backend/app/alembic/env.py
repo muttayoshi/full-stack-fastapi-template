@@ -25,6 +25,7 @@ from app.items.models import Item  # noqa
 from app.auditlog.models import AuditLog  # noqa
 from app.core.config import settings  # noqa
 from app.sites.models import Site  # noqa
+from app.chat.models import Room, RoomMember, Message  # noqa
 
 target_metadata = SQLModel.metadata
 

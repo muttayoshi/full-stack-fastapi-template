@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 90vh;
+        }
+
+        .sidebar {
+            background: #f8f9fa;
+            padding: 20px;
+            border-right: 1px solid #dee2e6;
+            overflow-y: auto;
+        }
+
+        .main-chat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .status.connected {
+            background: #28a745;
+        }
+
+        .status.disconnected {
+            background: #dc3545;
+        }
+
+        .login-form {
+            padding: 20px;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+
+        .login-form button {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .login-form button:hover {
+            background: #5568d3;
+        }
+
+        .rooms-list {
+            margin-top: 20px;
+        }
+
+        .rooms-list h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        .room-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .room-item:hover {
+            background: #e9ecef;
+        }
+
+        .room-item.active {
+            border-color: #667eea;
+            background: #e7e9ff;
+        }
+
+        .room-item h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .room-item p {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.own {
+            text-align: right;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .message.own .message-bubble {
+            background: #667eea;
+            color: white;
+        }
+
+        .message-sender {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 4px;
+            color: #495057;
+        }
+
+        .message.own .message-sender {
+            color: #e9ecef;
+        }
+
+        .message-content {
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+
+        .message.own .message-time {
+            color: #e9ecef;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 25px;
+            font-size: 14px;
+        }
+
+        .input-area input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-area button {
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .input-area button:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+
+        .input-area button:disabled {
+            background: #dee2e6;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .create-room-btn {
+            width: 100%;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .create-room-btn:hover {
+            background: #218838;
+        }
+
+        .notification {
+            padding: 8px 16px;
+            background: #ffc107;
+            color: #212529;
+            border-radius: 20px;
+            margin: 10px 20px;
+            font-size: 13px;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="login-form" id="loginForm">
+                <h3>Login</h3>
+                <input type="email" id="emailInput" placeholder="Email" value="admin@example.com">
+                <input type="password" id="passwordInput" placeholder="Password" value="changethis">
+                <button onclick="login()">Connect</button>
+            </div>
+
+            <div id="roomsSection" style="display:none;">
+                <button class="create-room-btn" onclick="createRoom()">+ Create Room</button>
+                <div class="rooms-list">
+                    <h3>My Rooms</h3>
+                    <div id="roomsList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-chat">
+            <div class="header">
+                <h1>WebSocket Chat Demo</h1>
+                <span class="status disconnected" id="statusBadge">Disconnected</span>
+                <div style="margin-top: 10px; font-size: 14px;">
+                    <span id="currentRoom">Select a room to start chatting</span>
+                </div>
+            </div>
+
+            <div class="messages" id="messagesContainer">
+                <div style="text-align: center; color: #6c757d; margin-top: 50px;">
+                    <h2>Welcome to WebSocket Chat! 👋</h2>
+                    <p>Login and select a room to start chatting</p>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="messageInput" placeholder="Type a message..." disabled
+                       onkeypress="if(event.key==='Enter') sendMessage()">
+                <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let token = null;
+        let currentUserId = null;
+        let currentRoomId = null;
+        let rooms = [];
+
+        const API_URL = 'http://localhost:8000/api/v1';
+        const WS_URL = 'ws://localhost:8000/api/v1';
+
+        async function login() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+
+            try {
+                const response = await fetch(`${API_URL}/login/access-token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+                });
+
+                if (!response.ok) throw new Error('Login failed');
+
+                const data = await response.json();
+                token = data.access_token;
+
+                // Get current user
+                const userResponse = await fetch(`${API_URL}/users/me`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const userData = await userResponse.json();
+                currentUserId = userData.id;
+
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('roomsSection').style.display = 'block';
+
+                connectWebSocket();
+                loadRooms();
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        }
+
+        function connectWebSocket() {
+            ws = new WebSocket(`${WS_URL}/chat/ws?token=${token}`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.getElementById('statusBadge').className = 'status connected';
+                document.getElementById('statusBadge').textContent = 'Connected';
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Received:', data);
+
+                if (data.type === 'message' && data.data) {
+                    addMessage(data.data);
+                } else if (data.type === 'user_joined' || data.type === 'user_left') {
+                    addNotification(data.message);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                document.getElementById('statusBadge').className = 'status disconnected';
+                document.getElementById('statusBadge').textContent = 'Disconnected';
+            };
+        }
+
+        async function loadRooms() {
+            try {
+                const response = await fetch(`${API_URL}/chat/rooms/my`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const data = await response.json();
+                rooms = data.data;
+
+                const roomsList = document.getElementById('roomsList');
+                roomsList.innerHTML = '';
+
+                rooms.forEach(room => {
+                    const roomDiv = document.createElement('div');
+                    roomDiv.className = 'room-item';
+                    roomDiv.onclick = () => selectRoom(room);
+                    roomDiv.innerHTML = `
+                        <h4>${room.name}</h4>
+                        <p>${room.member_count} members</p>
+                    `;
+                    roomsList.appendChild(roomDiv);
+                });
+            } catch (error) {
+                console.error('Failed to load rooms:', error);
+            }
+        }
+
+        async function createRoom() {
+            const name = prompt('Enter room name:');
+            if (!name) return;
+
+            try {
+                const response = await fetch(`${API_URL}/chat/rooms`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: '',
+                        is_private: false
+                    })
+                });
+
+                if (response.ok) {
+                    loadRooms();
+                }
+            } catch (error) {
+                alert('Failed to create room: ' + error.message);
+            }
+        }
+
+        async function selectRoom(room) {
+            currentRoomId = room.id;
+
+            // Update UI
+            document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
+            event.target.closest('.room-item').classList.add('active');
+
+            document.getElementById('currentRoom').textContent = room.name;
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+
+            // Join room via WebSocket
+            ws.send(JSON.stringify({
+                type: 'join_room',
+                room_id: room.id
+            }));
+
+            // Load messages
+            try {
+                const response = await fetch(`${API_URL}/chat/rooms/${room.id}/messages?limit=50`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const data = await response.json();
+
+                const container = document.getElementById('messagesContainer');
+                container.innerHTML = '';
+
+                data.data.reverse().forEach(msg => {
+                    addMessage(msg, false);
+                });
+
+                container.scrollTop = container.scrollHeight;
+            } catch (error) {
+                console.error('Failed to load messages:', error);
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+
+            if (!content || !currentRoomId) return;
+
+            ws.send(JSON.stringify({
+                type: 'message',
+                room_id: currentRoomId,
+                content: content,
+                message_type: 'text'
+            }));
+
+            input.value = '';
+        }
+
+        function addMessage(msg, animate = true) {
+            const container = document.getElementById('messagesContainer');
+            const isOwn = msg.sender_id === currentUserId;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isOwn ? 'own' : ''}`;
+            if (!animate) messageDiv.style.animation = 'none';
+
+            const time = new Date(msg.created_at).toLocaleTimeString();
+
+            messageDiv.innerHTML = `
+                <div class="message-bubble">
+                    ${!isOwn ? `<div class="message-sender">${msg.sender_full_name || msg.sender_email}</div>` : ''}
+                    <div class="message-content">${msg.content}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addNotification(message) {
+            const container = document.getElementById('messagesContainer');
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.textContent = message;
+            container.appendChild(notif);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>
+

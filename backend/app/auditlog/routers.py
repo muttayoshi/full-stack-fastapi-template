@@ -10,7 +10,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.auditlog.models import AuditAction, AuditLog
 from app.auditlog.schemas import AuditLogPublic, AuditLogsPublic
 
-router = APIRouter()
+router = APIRouter(prefix="/audit-logs", tags=["audit-logs"])
 
 
 @router.get("/", response_model=AuditLogsPublic)
