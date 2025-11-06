@@ -24,8 +24,8 @@ def upgrade():
                existing_type=sa.VARCHAR(),
                nullable=False)
     op.create_index(op.f('ix_user_google_id'), 'user', ['google_id'], unique=True)
-    op.drop_column('user', 'oauth_id')
-    op.drop_column('user', 'oauth_provider')
+    # op.drop_column('user', 'oauth_id')
+    # op.drop_column('user', 'oauth_provider')
     # ### end Alembic commands ###
 
 
