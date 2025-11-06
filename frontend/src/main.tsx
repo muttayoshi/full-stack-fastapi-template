@@ -1,3 +1,4 @@
+import { GoogleOAuthProvider } from "@react-oauth/google"
 import {
   MutationCache,
   QueryCache,
@@ -40,10 +41,12 @@ declare module "@tanstack/react-router" {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <CustomProvider>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    </CustomProvider>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <CustomProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </CustomProvider>
+    </GoogleOAuthProvider>
   </StrictMode>,
 )

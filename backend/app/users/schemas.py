@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr
 from sqlmodel import Field, SQLModel
 
 
@@ -10,6 +10,7 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+    google_id: str | None = Field(default=None, max_length=255)
 
 
 # Properties to receive via API on creation
@@ -67,3 +68,22 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+# Google OAuth schemas
+class GoogleAuthRequest(BaseModel):
+    """Request schema for Google OAuth authentication"""
+
+    code: str = Field(
+        description="Authorization code from Google OAuth",
+        min_length=1,
+        max_length=2048,
+    )
+
+
+class GoogleAuthResponse(BaseModel):
+    """Response schema for Google OAuth authentication"""
+
+    access_token: str
+    token_type: str = "bearer"
+    user: "UserPublic"

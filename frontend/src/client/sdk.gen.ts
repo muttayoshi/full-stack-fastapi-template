@@ -3,7 +3,218 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, PrivateCreateUserData, PrivateCreateUserResponse, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AuditLogsGetAuditLogsData, AuditLogsGetAuditLogsResponse, AuditLogsGetAuditLogData, AuditLogsGetAuditLogResponse, AuditLogsGetRecordHistoryData, AuditLogsGetRecordHistoryResponse, AuditLogsGetUserAuditLogsData, AuditLogsGetUserAuditLogsResponse, FileGetSignedUrlData, FileGetB2SignedUrlData, FileGetS3SignedUrlData, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginAccessTokenData, LoginLoginAccessTokenResponse, LoginTestTokenResponse, LoginRecoverPasswordData, LoginRecoverPasswordResponse, LoginResetPasswordData, LoginResetPasswordResponse, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentResponse, OauthGoogleLoginData, OauthGoogleLoginResponse, PrivateCreateUserPrivateData, PrivateCreateUserPrivateResponse, UploadUploadFilesData, UploadUploadFilesResponse, UploadUploadFilesToB2Data, UploadUploadFilesToB2Response, UploadUploadFilesToS3Data, UploadUploadFilesToS3Response, UsersReadUsersData, UsersReadUsersResponse, UsersCreateUserData, UsersCreateUserResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersUpdateUserMeData, UsersUpdateUserMeResponse, UsersUpdatePasswordMeData, UsersUpdatePasswordMeResponse, UsersRegisterUserData, UsersRegisterUserResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsTestEmailData, UtilsTestEmailResponse, UtilsHealthCheckResponse } from './types.gen';
+
+export class AuditLogsService {
+    /**
+     * Get Audit Logs
+     * Retrieve audit logs.
+     *
+     * - **Superusers**: Dapat melihat semua audit logs
+     * - **Regular users**: Hanya dapat melihat audit logs mereka sendiri
+     * @param data The data for the request.
+     * @param data.skip
+     * @param data.limit
+     * @param data.tableName
+     * @param data.recordId
+     * @param data.action
+     * @param data.userId
+     * @returns AuditLogsPublic Successful Response
+     * @throws ApiError
+     */
+    public static getAuditLogs(data: AuditLogsGetAuditLogsData = {}): CancelablePromise<AuditLogsGetAuditLogsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/audit-logs/',
+            query: {
+                skip: data.skip,
+                limit: data.limit,
+                table_name: data.tableName,
+                record_id: data.recordId,
+                action: data.action,
+                user_id: data.userId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Audit Log
+     * Get specific audit log by ID.
+     *
+     * Regular users can only access their own audit logs.
+     * @param data The data for the request.
+     * @param data.auditLogId
+     * @returns AuditLogPublic Successful Response
+     * @throws ApiError
+     */
+    public static getAuditLog(data: AuditLogsGetAuditLogData): CancelablePromise<AuditLogsGetAuditLogResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/audit-logs/{audit_log_id}',
+            path: {
+                audit_log_id: data.auditLogId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get Record History
+     * Get complete audit history for a specific record.
+     *
+     * Returns all CREATE, UPDATE, DELETE operations for the given record.
+     * @param data The data for the request.
+     * @param data.tableName
+     * @param data.recordId
+     * @param data.skip
+     * @param data.limit
+     * @returns AuditLogsPublic Successful Response
+     * @throws ApiError
+     */
+    public static getRecordHistory(data: AuditLogsGetRecordHistoryData): CancelablePromise<AuditLogsGetRecordHistoryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/audit-logs/record/{table_name}/{record_id}',
+            path: {
+                table_name: data.tableName,
+                record_id: data.recordId
+            },
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get User Audit Logs
+     * Get all audit logs for a specific user.
+     *
+     * Only superusers can access other users' audit logs.
+     * @param data The data for the request.
+     * @param data.userId
+     * @param data.skip
+     * @param data.limit
+     * @returns AuditLogsPublic Successful Response
+     * @throws ApiError
+     */
+    public static getUserAuditLogs(data: AuditLogsGetUserAuditLogsData): CancelablePromise<AuditLogsGetUserAuditLogsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/audit-logs/user/{user_id}',
+            path: {
+                user_id: data.userId
+            },
+            query: {
+                skip: data.skip,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class FileService {
+    /**
+     * Get Signed Url
+     * Convert a public GCS URL to a signed URL and redirect to it.
+     *
+     * **Parameters:**
+     * - url: Public GCS URL (e.g., https://storage.googleapis.com/bucket/path/file.jpg)
+     * - expiration_days: Number of days until the signed URL expires (default: 7, max: 365)
+     *
+     * **Returns:**
+     * - Redirects to the signed URL that can be accessed without authentication
+     * @param data The data for the request.
+     * @param data.url Public GCS URL to convert to signed URL
+     * @param data.expirationDays Number of days until the signed URL expires
+     * @throws ApiError
+     */
+    public static getSignedUrl(data: FileGetSignedUrlData): CancelablePromise<void> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/file/signed-url/',
+            query: {
+                url: data.url,
+                expiration_days: data.expirationDays
+            },
+            errors: {
+                307: 'Successful Response',
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get B2 Signed Url
+     * Convert a public Backblaze B2 URL to a presigned URL and redirect to it.
+     *
+     * **Parameters:**
+     * - url: Public B2 URL (e.g., https://s3.us-west-004.backblazeb2.com/bucket/path/file.jpg)
+     * - expiration_hours: Number of hours until the presigned URL expires (default: 24, max: 168)
+     *
+     * **Returns:**
+     * - Redirects to the presigned URL that can be accessed without authentication
+     * @param data The data for the request.
+     * @param data.url Public B2 URL to convert to presigned URL
+     * @param data.expirationHours Number of hours until the presigned URL expires
+     * @throws ApiError
+     */
+    public static getB2SignedUrl(data: FileGetB2SignedUrlData): CancelablePromise<void> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/file/b2-signed-url/',
+            query: {
+                url: data.url,
+                expiration_hours: data.expirationHours
+            },
+            errors: {
+                307: 'Successful Response',
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Get S3 Signed Url
+     * Convert a public Amazon S3 URL to a presigned URL and redirect to it.
+     *
+     * **Parameters:**
+     * - url: Public S3 URL (e.g., https://bucket-name.s3.us-east-1.amazonaws.com/path/file.jpg)
+     * - expiration_hours: Number of hours until the presigned URL expires (default: 24, max: 168)
+     *
+     * **Returns:**
+     * - Redirects to the presigned URL that can be accessed without authentication
+     * @param data The data for the request.
+     * @param data.url Public S3 URL to convert to presigned URL
+     * @param data.expirationHours Number of hours until the presigned URL expires
+     * @throws ApiError
+     */
+    public static getS3SignedUrl(data: FileGetS3SignedUrlData): CancelablePromise<void> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/file/s3-signed-url/',
+            query: {
+                url: data.url,
+                expiration_hours: data.expirationHours
+            },
+            errors: {
+                307: 'Successful Response',
+                422: 'Validation Error'
+            }
+        });
+    }
+}
 
 export class ItemsService {
     /**
@@ -213,21 +424,168 @@ export class LoginService {
     }
 }
 
+export class OauthService {
+    /**
+     * Google Login
+     * Google OAuth Login
+     *
+     * Exchange Google authorization code for access token.
+     * This endpoint will:
+     * 1. Validate the Google authorization code
+     * 2. Get user info from Google
+     * 3. Create new user or link Google account to existing user
+     * 4. Return access token for the user
+     *
+     * Note: If user doesn't exist, a new account will be created automatically.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns GoogleAuthResponse Successful Response
+     * @throws ApiError
+     */
+    public static googleLogin(data: OauthGoogleLoginData): CancelablePromise<OauthGoogleLoginResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/oauth/google',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class PrivateService {
     /**
-     * Create User
+     * Create User Private
      * Create a new user.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns UserPublic Successful Response
      * @throws ApiError
      */
-    public static createUser(data: PrivateCreateUserData): CancelablePromise<PrivateCreateUserResponse> {
+    public static createUserPrivate(data: PrivateCreateUserPrivateData): CancelablePromise<PrivateCreateUserPrivateResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/private/users/',
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class UploadService {
+    /**
+     * Upload Files
+     * Upload multiple files to Google Cloud Storage.
+     *
+     * **Parameters:**
+     * - files: List of files to upload
+     *
+     * **Returns:**
+     * - List of URLs for the uploaded files
+     *
+     * **Example Response:**
+     * ```json
+     * {
+     * "code": 201,
+     * "message": "Files uploaded successfully",
+     * "data": [
+     * "https://storage.googleapis.com/bucket-name/file1.pdf",
+     * "https://storage.googleapis.com/bucket-name/file2.jpg"
+     * ]
+     * }
+     * ```
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns BaseResponse_list_str__ Successful Response
+     * @throws ApiError
+     */
+    public static uploadFiles(data: UploadUploadFilesData): CancelablePromise<UploadUploadFilesResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/upload/',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upload Files To B2
+     * Upload multiple files to Backblaze B2 Storage.
+     *
+     * **Parameters:**
+     * - files: List of files to upload
+     *
+     * **Returns:**
+     * - List of presigned URLs for the uploaded files
+     *
+     * **Example Response:**
+     * ```json
+     * {
+     * "code": 201,
+     * "message": "Files uploaded successfully",
+     * "data": [
+     * "https://s3.us-west-004.backblazeb2.com/bucket-name/uploads/file1.pdf?...",
+     * "https://s3.us-west-004.backblazeb2.com/bucket-name/uploads/file2.jpg?..."
+     * ]
+     * }
+     * ```
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns BaseResponse_list_str__ Successful Response
+     * @throws ApiError
+     */
+    public static uploadFilesToB2(data: UploadUploadFilesToB2Data): CancelablePromise<UploadUploadFilesToB2Response> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/upload/b2/',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upload Files To S3
+     * Upload multiple files to Amazon S3 Storage.
+     *
+     * **Parameters:**
+     * - files: List of files to upload
+     *
+     * **Returns:**
+     * - List of presigned URLs for the uploaded files
+     *
+     * **Example Response:**
+     * ```json
+     * {
+     * "code": 201,
+     * "message": "Files uploaded successfully to Amazon S3",
+     * "data": [
+     * "https://bucket-name.s3.us-east-1.amazonaws.com/uploads/file1.pdf?...",
+     * "https://bucket-name.s3.us-east-1.amazonaws.com/uploads/file2.jpg?..."
+     * ]
+     * }
+     * ```
+     * @param data The data for the request.
+     * @param data.formData
+     * @returns BaseResponse_list_str__ Successful Response
+     * @throws ApiError
+     */
+    public static uploadFilesToS3(data: UploadUploadFilesToS3Data): CancelablePromise<UploadUploadFilesToS3Response> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/upload/s3/',
+            formData: data.formData,
+            mediaType: 'multipart/form-data',
             errors: {
                 422: 'Validation Error'
             }

@@ -133,5 +133,15 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str | None = None
     S3_REGION: str = "us-east-1"
 
+    # Google OAuth Configuration
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def google_oauth_enabled(self) -> bool:
+        return bool(self.GOOGLE_CLIENT_ID and self.GOOGLE_CLIENT_SECRET)
+
 
 settings = Settings()  # type: ignore
