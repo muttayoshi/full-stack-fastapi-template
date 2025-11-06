@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.core.config import settings
 from app.middleware.auditlog import AuditMiddleware
+from app.middleware.site import SitesMiddleware
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -24,7 +25,7 @@ app = FastAPI(
 # Set all CORS enabled origins
 if settings.all_cors_origins:
     app.add_middleware(
-        CORSMiddleware,
+        CORSMiddleware,  # type: ignore[arg-type]
         allow_origins=settings.all_cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
@@ -32,6 +33,7 @@ if settings.all_cors_origins:
     )
 
 # Add Audit Middleware untuk logging semua CRUD operations
-app.add_middleware(AuditMiddleware)
+app.add_middleware(AuditMiddleware)  # type: ignore[arg-type]
+app.add_middleware(SitesMiddleware)  # type: ignore[arg-type]
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

@@ -1,10 +1,9 @@
 import uuid
-from collections.abc import Callable
 
 import jwt
 from fastapi import Request, Response
 from jwt.exceptions import InvalidTokenError
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from app.core import security
 from app.core.auditlog import audit_context, get_client_info_from_request
@@ -14,7 +13,9 @@ from app.core.config import settings
 class AuditMiddleware(BaseHTTPMiddleware):
     """Middleware untuk mengatur audit context berdasarkan request"""
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         # Extract client info dari request
         client_info = get_client_info_from_request(request)
 

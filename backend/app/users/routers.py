@@ -51,6 +51,8 @@ oauth_router = APIRouter(prefix="/oauth", tags=["oauth"])
 # Authentication endpoints
 auth_router = APIRouter(tags=["login"])
 
+users_router = APIRouter(prefix="/users", tags=["users"])
+
 
 @auth_router.post("/login/access-token")
 def login_access_token(
@@ -156,9 +158,6 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
 
 
 # User management endpoints
-users_router = APIRouter(prefix="/users", tags=["users"])
-
-
 @users_router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
