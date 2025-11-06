@@ -1,3 +1,4 @@
+"""Repository layer for user functionality."""
 import uuid
 from typing import Any
 
@@ -72,6 +73,18 @@ def authenticate(*, session: Session, email: str, password: str) -> User | None:
     if not verify_password(password, db_user.hashed_password):
         return None
     return db_user
+
+
+def get_users(*, session: Session, skip: int = 0, limit: int = 100) -> list[User]:
+    """Get all users with pagination."""
+    statement = select(User).offset(skip).limit(limit)
+    return list(session.exec(statement).all())
+
+
+def count_users(*, session: Session) -> int:
+    """Count total users."""
+    statement = select(func.count()).select_from(User)
+    return session.exec(statement).one()
 
 
 # ============================================================================

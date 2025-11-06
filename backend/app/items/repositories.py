@@ -42,3 +42,13 @@ def get_items_by_owner(
     statement = select(Item).where(Item.owner_id == owner_id).offset(skip).limit(limit)
     items = session.exec(statement).all()
     return list(items), count
+
+
+def delete_items_by_owner(*, session: Session, owner_id: uuid.UUID) -> int:
+    """Delete all items belonging to an owner."""
+    from sqlmodel import col, delete
+
+    statement = delete(Item).where(col(Item.owner_id) == owner_id)
+    result = session.exec(statement)  # type: ignore
+    session.commit()
+    return result.rowcount  # type: ignore

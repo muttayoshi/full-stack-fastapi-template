@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from sqlmodel import col, delete, func, select
 
 from app.api.deps import (
     CurrentUser,
@@ -18,7 +17,6 @@ from app.common.schemas import Message
 from app.core import security
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.items.models import Item
 from app.users.models import User
 from app.users.schemas import (
     GoogleAuthRequest,
@@ -184,12 +182,10 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     """
     Retrieve users.
     """
+    from app.users import repositories
 
-    count_statement = select(func.count()).select_from(User)
-    count = session.exec(count_statement).one()
-
-    statement = select(User).offset(skip).limit(limit)
-    users = session.exec(statement).all()
+    users = repositories.get_users(session=session, skip=skip, limit=limit)
+    count = repositories.count_users(session=session)
 
     return UsersPublic(data=users, count=count)
 
@@ -362,6 +358,8 @@ def delete_user(
     """
     Delete a user.
     """
+    from app.items import repositories as item_repos
+
     user = UserService.get_user_by_id(session=session, user_id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -369,8 +367,8 @@ def delete_user(
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
-    statement = delete(Item).where(col(Item.owner_id) == user_id)
-    session.exec(statement)  # type: ignore
+    # Delete all items owned by the user
+    item_repos.delete_items_by_owner(session=session, owner_id=user_id)
     session.delete(user)
     session.commit()
     return Message(message="User deleted successfully")

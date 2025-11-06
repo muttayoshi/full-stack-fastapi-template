@@ -5,7 +5,18 @@ from app.users.models import User
 from app.users.schemas import UserCreate
 from app.users.services import UserService
 
-engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+# Create engine with proper pool settings to prevent connection leaks
+# pool_pre_ping ensures connections are alive before using them
+# pool_size is the number of connections to keep open
+# max_overflow allows temporary connections beyond pool_size
+engine = create_engine(
+    str(settings.SQLALCHEMY_DATABASE_URI),
+    pool_pre_ping=True,  # Test connection before using to avoid stale connections
+    pool_size=10,  # Number of permanent connections in the pool
+    max_overflow=20,  # Max additional connections when pool is exhausted
+    pool_recycle=3600,  # Recycle connections after 1 hour to avoid stale connections
+    echo=False,  # Set to True for SQL query debugging
+)
 
 
 # make sure all SQLModel models are imported (app.models) before initializing DB

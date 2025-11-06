@@ -1,8 +1,9 @@
 import logging
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic.networks import EmailStr
 
 from app.api.deps import get_current_active_superuser
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/utils", tags=["utils"])
 upload_router = APIRouter(prefix="/upload", tags=["upload"])
 file_router = APIRouter(prefix="/file", tags=["file"])
+sandbox_router = APIRouter(prefix="/sandbox", tags=["sandbox"])
 
 
 @router.post(
@@ -398,3 +400,32 @@ async def get_s3_signed_url(
         raise HTTPException(
             status_code=500, detail=f"Failed to generate presigned URL: {str(e)}"
         )
+
+
+@sandbox_router.get("/chat/", response_class=HTMLResponse)
+async def chat_demo() -> str:
+    """
+    Serve the WebSocket Chat Demo HTML for testing purposes.
+
+    This endpoint serves a fully functional chat interface that can be used to test
+    the WebSocket chat functionality without CORS issues.
+
+    **Access:** http://localhost:8000/api/v1/sandbox/chat/
+
+    **Features:**
+    - Login with existing credentials
+    - Create and join chat rooms
+    - Send and receive real-time messages via WebSocket
+    - Visual indicators for connection status
+
+    **Default credentials:**
+    - Email: admin@example.com
+    - Password: changethis
+    """
+    # Get the path to the HTML template
+    template_path = Path(__file__).parent.parent / "templates" / "chat-demo.html"
+
+    # Read the HTML content from file
+    html_content = template_path.read_text(encoding="utf-8")
+
+    return html_content

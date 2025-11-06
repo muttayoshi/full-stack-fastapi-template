@@ -6,7 +6,10 @@ from app.auditlog.schemas import (
     AuditLogListResponse,
     AuditLogResponse,
 )
-from app.auditlog.services import AuditService
+from app.auditlog.services import AuditLogService
+
+# Backward compatibility alias
+AuditService = AuditLogService
 
 __all__ = [
     "AuditAction",
@@ -14,5 +17,6 @@ __all__ = [
     "AuditLogBase",
     "AuditLogListResponse",
     "AuditLogResponse",
+    "AuditLogService",
     "AuditService",
 ]
